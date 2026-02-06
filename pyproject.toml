@@ -1,0 +1,12 @@
+[project]
+name = "papers-workflow"
+version = "0.1.0"
+description = "Automate paper reading workflow between Zotero and reMarkable"
+requires-python = ">=3.9"
+dependencies = [
+    "python-dotenv",
+    "requests",
+]
+
+[project.scripts]
+papers-workflow = "papers_workflow.main:main"
