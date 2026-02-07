@@ -6,10 +6,14 @@ build-backend = "hatchling.build"
 name = "papers-workflow"
 version = "0.1.0"
 description = "Automate paper reading workflow between Zotero and reMarkable"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "python-dotenv",
     "requests",
+    "rmscene>=0.7.0",
+    "rmrl>=0.2.1",
+    "pymupdf>=1.24.0",
+    "setuptools",
 ]
 
 [project.scripts]

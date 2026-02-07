@@ -100,6 +100,39 @@ def upload_pdf_bytes(pdf_bytes: bytes, folder: str, title: str) -> None:
     log.info("Uploaded '%s' to /%s/", title, folder)
 
 
+def download_document_bundle_to(folder: str, doc_name: str, output_path: Path) -> bool:
+    """Download a raw document bundle (zip) using rmapi get.
+
+    Returns True on success, False on failure.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        rmapi = shutil.which("rmapi")
+        if not rmapi:
+            raise RuntimeError("rmapi not found")
+
+        result = subprocess.run(
+            [rmapi, "get", f"/{folder}/{doc_name}"],
+            capture_output=True, text=True, timeout=120,
+            cwd=tmpdir,
+        )
+        if result.returncode != 0:
+            log.warning(
+                "Failed to download bundle for '%s': %s",
+                doc_name, result.stderr.strip(),
+            )
+            return False
+
+        # rmapi get produces a .zip or .rmdoc file in the working directory
+        zips = list(Path(tmpdir).glob("*.zip")) + list(Path(tmpdir).glob("*.rmdoc"))
+        if not zips:
+            log.warning("rmapi get produced no bundle for '%s'", doc_name)
+            return False
+
+        shutil.move(str(zips[0]), str(output_path))
+        log.info("Downloaded document bundle: %s", output_path)
+        return True
+
+
 def download_annotated_pdf(folder: str, doc_name: str, output_dir: Path) -> Optional[Path]:
     """Download a document as an annotated PDF using rmapi geta.
 

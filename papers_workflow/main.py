@@ -23,6 +23,7 @@ def main():
     from papers_workflow import remarkable_client
     from papers_workflow import obsidian
     from papers_workflow import notify
+    from papers_workflow import renderer
     from papers_workflow.state import State, acquire_lock, release_lock
 
     # Setup logging
@@ -157,17 +158,37 @@ def main():
             att_key = doc["zotero_attachment_key"]
             att_md5 = doc["zotero_attachment_md5"]
 
-            # Download annotated PDF from reMarkable
+            highlights = None
+
             with tempfile.TemporaryDirectory() as tmpdir:
-                output_path = Path(tmpdir) / f"{rm_name}.pdf"
-                success = remarkable_client.download_annotated_pdf_to(
-                    config.RM_FOLDER_READ, rm_name, output_path,
+                zip_path = Path(tmpdir) / f"{rm_name}.zip"
+                pdf_path = Path(tmpdir) / f"{rm_name}.pdf"
+
+                # Download raw document bundle
+                bundle_ok = remarkable_client.download_document_bundle_to(
+                    config.RM_FOLDER_READ, rm_name, zip_path,
                 )
 
-                if success and output_path.exists():
-                    annotated_bytes = output_path.read_bytes()
+                if bundle_ok and zip_path.exists():
+                    # Extract highlighted text
+                    highlights = renderer.extract_highlights(zip_path)
+                    if not highlights:
+                        log.info("No text highlights found for '%s'", rm_name)
 
-                    # Upload annotated PDF to Zotero
+                    # Render annotated PDF
+                    render_ok = renderer.render_annotated_pdf(zip_path, pdf_path)
+                else:
+                    render_ok = False
+
+                # Fall back to geta if render failed
+                if not render_ok:
+                    log.info("Falling back to rmapi geta for '%s'", rm_name)
+                    render_ok = remarkable_client.download_annotated_pdf_to(
+                        config.RM_FOLDER_READ, rm_name, pdf_path,
+                    )
+
+                if render_ok and pdf_path.exists():
+                    annotated_bytes = pdf_path.read_bytes()
                     zotero_client.upload_pdf(
                         att_key, annotated_bytes, att_md5,
                         filename=f"{rm_name}.pdf",
@@ -184,15 +205,14 @@ def main():
                 item_key, config.ZOTERO_TAG_TO_READ, config.ZOTERO_TAG_READ,
             )
 
-            # Create Obsidian note (highlights extracted by geta are in the PDF,
-            # text extraction via remarks is a future enhancement)
+            # Create Obsidian note with extracted highlights
             obsidian.ensure_reading_logs()
             obsidian.create_paper_note(
                 title=doc["title"],
                 authors=doc["authors"],
                 date_added=doc["uploaded_at"],
                 zotero_item_key=item_key,
-                highlights=None,
+                highlights=highlights or None,
             )
             obsidian.append_to_reading_log(doc["title"], doc["authors"])
 
