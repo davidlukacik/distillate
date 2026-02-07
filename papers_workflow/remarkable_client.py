@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from papers_workflow import config
 
@@ -65,20 +65,6 @@ def list_folder(folder: str) -> List[str]:
     return names
 
 
-def upload_pdf(pdf_path: Path, folder: str, title: str) -> None:
-    """Upload a PDF to a reMarkable folder with a given title.
-
-    The file is copied to a temp file named after the title so that
-    rmapi uses the title as the document name on the device.
-    """
-    sanitized = _sanitize_filename(title)
-    with tempfile.TemporaryDirectory() as tmpdir:
-        dest = Path(tmpdir) / f"{sanitized}.pdf"
-        shutil.copy2(pdf_path, dest)
-        _run(["put", str(dest), f"/{folder}/"])
-    log.info("Uploaded '%s' to /%s/", title, folder)
-
-
 def upload_pdf_bytes(pdf_bytes: bytes, folder: str, title: str) -> None:
     """Upload PDF bytes to a reMarkable folder with a given title.
 
@@ -131,40 +117,6 @@ def download_document_bundle_to(folder: str, doc_name: str, output_path: Path) -
         shutil.move(str(zips[0]), str(output_path))
         log.info("Downloaded document bundle: %s", output_path)
         return True
-
-
-def download_annotated_pdf(folder: str, doc_name: str, output_dir: Path) -> Optional[Path]:
-    """Download a document as an annotated PDF using rmapi geta.
-
-    Returns the path to the downloaded PDF, or None on failure.
-    """
-    result = _run(
-        ["geta", f"/{folder}/{doc_name}"],
-        check=False,
-    )
-    if result.returncode != 0:
-        log.warning(
-            "Failed to download annotated PDF for '%s': %s",
-            doc_name, result.stderr.strip(),
-        )
-        return None
-
-    # geta writes a .pdf file in the current directory with the doc name
-    # We need to find it and move it to output_dir
-    # rmapi geta outputs to current working directory, so we run from output_dir
-    # Actually, let's look for the file
-    sanitized = _sanitize_filename(doc_name)
-    for pattern in [f"{sanitized}.pdf", f"{doc_name}.pdf"]:
-        candidate = Path.cwd() / pattern
-        if candidate.exists():
-            dest = output_dir / pattern
-            shutil.move(str(candidate), str(dest))
-            log.info("Downloaded annotated PDF: %s", dest)
-            return dest
-
-    # geta may output to a zip file or use a different name
-    log.warning("Could not find downloaded PDF for '%s'", doc_name)
-    return None
 
 
 def download_annotated_pdf_to(folder: str, doc_name: str, output_path: Path) -> bool:

@@ -9,8 +9,9 @@ Save paper in Zotero  ──▶  PDF uploaded to reMarkable /To Read
                          Move to /Read when done
                                     │
                          Script picks it up:
-                         ├── Annotated PDF → Zotero
+                         ├── Annotated PDF → Obsidian vault
                          ├── Note + highlights → Obsidian
+                         ├── PDF deleted from Zotero (free storage)
                          └── Document → /Archive on reMarkable
 ```
 
@@ -116,10 +117,11 @@ On first run, the script sets a watermark at the current Zotero library version.
 3. Tags them `to-read` in Zotero
 4. **Checks reMarkable** `/Read` folder for papers you've finished
 5. Extracts highlighted text from the reMarkable document
-6. Renders an annotated PDF with highlights and uploads it back to Zotero
-7. Creates an Obsidian note with metadata and extracted highlights
-8. Archives the document on reMarkable
-9. Sends a macOS notification summarizing what happened
+6. Renders an annotated PDF with highlights and saves it to the Obsidian vault
+7. Deletes the original PDF from Zotero to free storage (metadata is kept)
+8. Creates an Obsidian note with metadata, highlights, and an embedded PDF link
+9. Archives the document on reMarkable
+10. Sends a macOS notification summarizing what happened
 
 ### How highlights work
 
@@ -129,7 +131,7 @@ The script:
 1. Downloads the raw document bundle (`rmapi get`)
 2. Parses the `.rm` files using [rmscene](https://github.com/ricklupton/rmscene) to extract highlighted text
 3. Searches for that text in the original PDF using [PyMuPDF](https://pymupdf.readthedocs.io/) and adds highlight annotations at the matching locations
-4. Uploads the annotated PDF to Zotero and writes the highlight text to the Obsidian note
+4. Saves the annotated PDF to the Obsidian vault and writes the highlight text to the Obsidian note
 
 ## Scheduling (macOS)
 

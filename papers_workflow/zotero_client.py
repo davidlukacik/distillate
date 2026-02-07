@@ -3,7 +3,6 @@
 Handles polling for new items, downloading/uploading PDFs, and managing tags.
 """
 
-import hashlib
 import logging
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -153,21 +152,6 @@ def download_pdf(attachment_key: str) -> bytes:
 # -- Tagging --
 
 
-def set_tags(item_key: str, tags: List[str]) -> None:
-    """Replace all tags on an item."""
-    # First get the current item version for If-Match
-    resp = _get(f"/items/{item_key}")
-    item = resp.json()
-    version = item["version"]
-
-    _patch(
-        f"/items/{item_key}",
-        json={"tags": [{"tag": t} for t in tags]},
-        headers={"If-Unmodified-Since-Version": str(version)},
-    )
-    log.info("Set tags on %s: %s", item_key, tags)
-
-
 def add_tag(item_key: str, tag: str) -> None:
     """Add a tag to an item, preserving existing tags."""
     resp = _get(f"/items/{item_key}")
@@ -205,62 +189,6 @@ def replace_tag(item_key: str, old_tag: str, new_tag: str) -> None:
     )
     log.info("Replaced tag '%s' → '%s' on %s", old_tag, new_tag, item_key)
 
-
-# -- File upload (3-step) --
-
-
-def upload_pdf(
-    attachment_key: str, pdf_bytes: bytes, current_md5: str, filename: str,
-) -> None:
-    """Replace a PDF attachment file using Zotero's 3-step upload.
-
-    Args:
-        attachment_key: The Zotero key of the attachment item.
-        pdf_bytes: The new PDF file content.
-        current_md5: The MD5 hash of the current file (for If-Match).
-        filename: The filename to use for the upload.
-    """
-    new_md5 = hashlib.md5(pdf_bytes).hexdigest()
-    mtime = str(int(time.time() * 1000))
-
-    # Step 1: Get upload authorization
-    resp = requests.post(
-        _url(f"/items/{attachment_key}/file"),
-        headers={**_HEADERS, "If-Match": current_md5, "Content-Type": "application/x-www-form-urlencoded"},
-        data={
-            "md5": new_md5,
-            "filename": filename,
-            "filesize": str(len(pdf_bytes)),
-            "mtime": mtime,
-        },
-        timeout=config.HTTP_TIMEOUT,
-    )
-    resp.raise_for_status()
-    auth = resp.json()
-
-    if auth.get("exists") == 1:
-        log.info("File already exists on Zotero server, skipping upload")
-        return
-
-    # Step 2: Upload to the provided URL
-    upload_body = auth["prefix"].encode() + pdf_bytes + auth["suffix"].encode()
-    upload_resp = requests.post(
-        auth["url"],
-        headers={"Content-Type": auth["contentType"]},
-        data=upload_body,
-        timeout=120,
-    )
-    upload_resp.raise_for_status()
-
-    # Step 3: Register the upload
-    register_resp = requests.post(
-        _url(f"/items/{attachment_key}/file"),
-        headers={**_HEADERS, "If-Match": current_md5, "Content-Type": "application/x-www-form-urlencoded"},
-        data={"upload": auth["uploadKey"]},
-        timeout=config.HTTP_TIMEOUT,
-    )
-    register_resp.raise_for_status()
-    log.info("Uploaded annotated PDF for attachment %s", attachment_key)
 
 
 def delete_attachment(attachment_key: str) -> None:
