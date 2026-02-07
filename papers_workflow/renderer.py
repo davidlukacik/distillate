@@ -21,7 +21,7 @@ _MAX_LINE_GAP = 100.0
 
 # Highlight annotation style
 _HIGHLIGHT_COLOR = (1.0, 0.92, 0.3)  # soft yellow
-_HIGHLIGHT_OPACITY = 0.20
+_HIGHLIGHT_OPACITY = 0.35
 _HIGHLIGHT_TRIM = 0.20  # shrink quads vertically by this fraction per side
 
 
