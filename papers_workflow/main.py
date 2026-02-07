@@ -1,4 +1,15 @@
+"""Papers workflow entry point.
+
+One-shot script: polls Zotero and reMarkable, processes papers, then exits.
+Designed to be run on a schedule via cron or launchd.
+"""
+
+import logging
 import sys
+import tempfile
+from pathlib import Path
+
+log = logging.getLogger("papers_workflow")
 
 
 def main():
@@ -8,15 +19,202 @@ def main():
         return
 
     from papers_workflow import config
+    from papers_workflow import zotero_client
+    from papers_workflow import remarkable_client
+    from papers_workflow import obsidian
+    from papers_workflow import notify
+    from papers_workflow.state import State, acquire_lock, release_lock
 
-    print("Zotero API Key:", config.ZOTERO_API_KEY[:8] + "...")
-    print("Zotero User ID:", config.ZOTERO_USER_ID)
-    print("reMarkable Token:", "set" if config.REMARKABLE_DEVICE_TOKEN else "not set (run --register)")
-    print("To Read folder:", config.RM_FOLDER_TO_READ)
-    print("Read folder:", config.RM_FOLDER_READ)
-    print("Poll interval:", config.POLL_INTERVAL, "seconds")
-    print()
-    print("Config loaded successfully.")
+    # Setup logging
+    logging.basicConfig(
+        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    # Prevent overlapping runs
+    if not acquire_lock():
+        log.warning("Another instance is running (lock held), exiting")
+        return
+
+    try:
+        state = State()
+        sent_count = 0
+        synced_count = 0
+
+        # -- Step 1: Poll Zotero for new papers --
+        log.info("Step 1: Checking Zotero for new papers...")
+
+        current_version = zotero_client.get_library_version()
+        stored_version = state.zotero_library_version
+
+        if stored_version == 0:
+            # First run: just record the current version, don't process
+            # existing items. Only papers added after this point will be synced.
+            log.info(
+                "First run: setting Zotero version watermark to %d "
+                "(existing papers will not be processed)",
+                current_version,
+            )
+            state.zotero_library_version = current_version
+            state.save()
+        elif current_version == stored_version:
+            log.info("Zotero library unchanged (version %d)", current_version)
+        else:
+            log.info(
+                "Zotero library changed: %d → %d",
+                stored_version, current_version,
+            )
+            changed_keys, new_version = zotero_client.get_changed_item_keys(
+                stored_version
+            )
+
+            if changed_keys:
+                # Filter out items we already track
+                new_keys = [
+                    k for k in changed_keys if not state.has_document(k)
+                ]
+
+                if new_keys:
+                    items = zotero_client.get_items_by_keys(new_keys)
+                    new_papers = zotero_client.filter_new_papers(items)
+                    log.info("Found %d new papers", len(new_papers))
+
+                    # Ensure reMarkable folders exist
+                    if new_papers:
+                        remarkable_client.ensure_folders()
+
+                    for paper in new_papers:
+                        try:
+                            item_key = paper["key"]
+                            meta = zotero_client.extract_metadata(paper)
+                            title = meta["title"]
+                            authors = meta["authors"]
+
+                            log.info("Processing: %s", title)
+
+                            # Find PDF attachment
+                            attachment = zotero_client.get_pdf_attachment(item_key)
+                            if not attachment:
+                                log.warning("No PDF attachment for '%s', skipping", title)
+                                continue
+
+                            att_key = attachment["key"]
+                            att_md5 = attachment["data"].get("md5", "")
+
+                            # Download PDF
+                            pdf_bytes = zotero_client.download_pdf(att_key)
+                            log.info("Downloaded PDF (%d bytes)", len(pdf_bytes))
+
+                            # Upload to reMarkable with paper title
+                            remarkable_client.upload_pdf_bytes(
+                                pdf_bytes, config.RM_FOLDER_TO_READ, title
+                            )
+
+                            # Tag in Zotero
+                            zotero_client.add_tag(item_key, config.ZOTERO_TAG_TO_READ)
+
+                            # Track in state
+                            state.add_document(
+                                zotero_item_key=item_key,
+                                zotero_attachment_key=att_key,
+                                zotero_attachment_md5=att_md5,
+                                remarkable_doc_name=title,
+                                title=title,
+                                authors=authors,
+                            )
+                            sent_count += 1
+                            log.info("Sent to reMarkable: %s", title)
+
+                        except Exception:
+                            log.exception("Failed to process paper '%s', skipping",
+                                          paper.get("data", {}).get("title", paper.get("key")))
+                            continue
+
+            state.zotero_library_version = current_version
+            state.save()
+
+        # -- Step 2: Poll reMarkable for read papers --
+        log.info("Step 2: Checking reMarkable for read papers...")
+
+        read_docs = remarkable_client.list_folder(config.RM_FOLDER_READ)
+        on_remarkable = state.documents_with_status("on_remarkable")
+
+        for doc in on_remarkable:
+            rm_name = doc["remarkable_doc_name"]
+
+            if rm_name not in read_docs:
+                continue
+
+            log.info("Found read paper: %s", rm_name)
+            item_key = doc["zotero_item_key"]
+            att_key = doc["zotero_attachment_key"]
+            att_md5 = doc["zotero_attachment_md5"]
+
+            # Download annotated PDF from reMarkable
+            with tempfile.TemporaryDirectory() as tmpdir:
+                output_path = Path(tmpdir) / f"{rm_name}.pdf"
+                success = remarkable_client.download_annotated_pdf_to(
+                    config.RM_FOLDER_READ, rm_name, output_path,
+                )
+
+                if success and output_path.exists():
+                    annotated_bytes = output_path.read_bytes()
+
+                    # Upload annotated PDF to Zotero
+                    zotero_client.upload_pdf(
+                        att_key, annotated_bytes, att_md5,
+                        filename=f"{rm_name}.pdf",
+                    )
+                    log.info("Uploaded annotated PDF to Zotero")
+                else:
+                    log.warning(
+                        "Could not get annotated PDF for '%s', "
+                        "Zotero PDF left unchanged", rm_name,
+                    )
+
+            # Update Zotero tag
+            zotero_client.replace_tag(
+                item_key, config.ZOTERO_TAG_TO_READ, config.ZOTERO_TAG_READ,
+            )
+
+            # Create Obsidian note (highlights extracted by geta are in the PDF,
+            # text extraction via remarks is a future enhancement)
+            obsidian.ensure_reading_logs()
+            obsidian.create_paper_note(
+                title=doc["title"],
+                authors=doc["authors"],
+                date_added=doc["uploaded_at"],
+                zotero_item_key=item_key,
+                highlights=None,
+            )
+            obsidian.append_to_reading_log(doc["title"], doc["authors"])
+
+            # Move to Archive on reMarkable
+            remarkable_client.move_document(
+                rm_name, config.RM_FOLDER_READ, config.RM_FOLDER_ARCHIVE,
+            )
+
+            # Update state
+            state.mark_processed(item_key)
+            synced_count += 1
+            log.info("Processed: %s", rm_name)
+
+        state.touch_poll_timestamp()
+        state.save()
+
+        # -- Step 3: Notify --
+        if sent_count or synced_count:
+            log.info("Done: %d sent, %d synced", sent_count, synced_count)
+            notify.notify_summary(sent_count, synced_count)
+        else:
+            log.info("Nothing to do.")
+
+    except Exception:
+        log.exception("Unexpected error")
+        raise
+    finally:
+        release_lock()
 
 
 if __name__ == "__main__":

@@ -46,4 +46,14 @@ REMARKABLE_DEVICE_TOKEN: str = os.environ.get("REMARKABLE_DEVICE_TOKEN", "").str
 # Configurable with defaults
 RM_FOLDER_TO_READ: str = os.environ.get("RM_FOLDER_TO_READ", "To Read").strip()
 RM_FOLDER_READ: str = os.environ.get("RM_FOLDER_READ", "Read").strip()
-POLL_INTERVAL: int = int(os.environ.get("POLL_INTERVAL", "300"))
+RM_FOLDER_ARCHIVE: str = os.environ.get("RM_FOLDER_ARCHIVE", "Archive").strip()
+
+ZOTERO_TAG_TO_READ: str = os.environ.get("ZOTERO_TAG_TO_READ", "to-read").strip()
+ZOTERO_TAG_READ: str = os.environ.get("ZOTERO_TAG_READ", "read").strip()
+
+OBSIDIAN_VAULT_PATH: str = os.environ.get("OBSIDIAN_VAULT_PATH", "").strip()
+OBSIDIAN_PAPERS_FOLDER: str = os.environ.get("OBSIDIAN_PAPERS_FOLDER", "Papers").strip()
+OBSIDIAN_LOG_FILE: str = os.environ.get("OBSIDIAN_LOG_FILE", "Reading Log (Simple).md").strip()
+
+HTTP_TIMEOUT: int = int(os.environ.get("HTTP_TIMEOUT", "30"))
+LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO").strip().upper()

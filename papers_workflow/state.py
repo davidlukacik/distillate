@@ -1,0 +1,144 @@
+"""Persistent state management for the papers workflow.
+
+Tracks Zotero library version, document mappings between Zotero and reMarkable,
+and processing status. State is stored as JSON and written atomically to prevent
+corruption if the script is interrupted mid-write.
+"""
+
+import json
+import os
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+STATE_PATH = Path(__file__).resolve().parent.parent / "state.json"
+LOCK_PATH = STATE_PATH.with_suffix(".lock")
+
+_DEFAULT_STATE = {
+    "zotero_library_version": 0,
+    "last_poll_timestamp": None,
+    "documents": {},
+}
+
+
+def _load_raw() -> Dict[str, Any]:
+    if not STATE_PATH.exists():
+        return dict(_DEFAULT_STATE)
+    return json.loads(STATE_PATH.read_text())
+
+
+def _save_raw(data: Dict[str, Any]) -> None:
+    """Write state atomically: write to temp file, then rename."""
+    fd, tmp = tempfile.mkstemp(
+        dir=STATE_PATH.parent, prefix=".state_", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+            f.write("\n")
+        os.replace(tmp, STATE_PATH)
+    except BaseException:
+        os.unlink(tmp)
+        raise
+
+
+class State:
+    """Interface for reading and writing persistent workflow state."""
+
+    def __init__(self) -> None:
+        self._data = _load_raw()
+
+    def save(self) -> None:
+        _save_raw(self._data)
+
+    # -- Zotero library version --
+
+    @property
+    def zotero_library_version(self) -> int:
+        return self._data["zotero_library_version"]
+
+    @zotero_library_version.setter
+    def zotero_library_version(self, version: int) -> None:
+        self._data["zotero_library_version"] = version
+
+    # -- Poll timestamp --
+
+    @property
+    def last_poll_timestamp(self) -> Optional[str]:
+        return self._data["last_poll_timestamp"]
+
+    def touch_poll_timestamp(self) -> None:
+        self._data["last_poll_timestamp"] = (
+            datetime.now(timezone.utc).isoformat()
+        )
+
+    # -- Document tracking --
+
+    @property
+    def documents(self) -> Dict[str, Any]:
+        return self._data["documents"]
+
+    def get_document(self, zotero_item_key: str) -> Optional[Dict[str, Any]]:
+        return self._data["documents"].get(zotero_item_key)
+
+    def has_document(self, zotero_item_key: str) -> bool:
+        return zotero_item_key in self._data["documents"]
+
+    def add_document(
+        self,
+        zotero_item_key: str,
+        zotero_attachment_key: str,
+        zotero_attachment_md5: str,
+        remarkable_doc_name: str,
+        title: str,
+        authors: List[str],
+    ) -> None:
+        self._data["documents"][zotero_item_key] = {
+            "zotero_item_key": zotero_item_key,
+            "zotero_attachment_key": zotero_attachment_key,
+            "zotero_attachment_md5": zotero_attachment_md5,
+            "remarkable_doc_name": remarkable_doc_name,
+            "title": title,
+            "authors": authors,
+            "status": "on_remarkable",
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            "processed_at": None,
+        }
+
+    def mark_processed(self, zotero_item_key: str) -> None:
+        doc = self._data["documents"].get(zotero_item_key)
+        if doc:
+            doc["status"] = "processed"
+            doc["processed_at"] = datetime.now(timezone.utc).isoformat()
+
+    def mark_deleted(self, zotero_item_key: str) -> None:
+        doc = self._data["documents"].get(zotero_item_key)
+        if doc:
+            doc["status"] = "deleted"
+
+    def documents_with_status(self, status: str) -> List[Dict[str, Any]]:
+        return [
+            doc
+            for doc in self._data["documents"].values()
+            if doc["status"] == status
+        ]
+
+
+def acquire_lock() -> bool:
+    """Try to acquire a file lock. Returns True if acquired, False if already held."""
+    try:
+        fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(fd, str(os.getpid()).encode())
+        os.close(fd)
+        return True
+    except FileExistsError:
+        return False
+
+
+def release_lock() -> None:
+    """Release the file lock."""
+    try:
+        LOCK_PATH.unlink()
+    except FileNotFoundError:
+        pass
