@@ -73,6 +73,19 @@ def delete_to_read_pdf(title: str) -> None:
         log.info("Removed from To Read: %s", pdf_path)
 
 
+def delete_paper_note(title: str) -> None:
+    """Delete an existing paper note if it exists."""
+    d = _papers_dir()
+    if d is None:
+        return
+
+    sanitized = _sanitize_note_name(title)
+    note_path = d / f"{sanitized}.md"
+    if note_path.exists():
+        note_path.unlink()
+        log.info("Deleted existing note: %s", note_path)
+
+
 def save_annotated_pdf(title: str, pdf_bytes: bytes) -> Optional[Path]:
     """Save an annotated PDF to the Obsidian vault papers folder.
 

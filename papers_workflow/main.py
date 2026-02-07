@@ -14,10 +14,92 @@ import requests
 log = logging.getLogger("papers_workflow")
 
 
+def _reprocess(args: list[str]) -> None:
+    """Re-run highlight extraction + PDF rendering on processed papers."""
+    from papers_workflow import config
+    from papers_workflow import remarkable_client
+    from papers_workflow import obsidian
+    from papers_workflow import renderer
+    from papers_workflow.state import State
+
+    logging.basicConfig(
+        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    state = State()
+    processed = state.documents_with_status("processed")
+
+    if not processed:
+        log.info("No processed papers to reprocess")
+        return
+
+    # Filter to specific title if provided
+    if args:
+        query = " ".join(args).lower()
+        matches = [d for d in processed if query in d["title"].lower()]
+        if not matches:
+            log.error("No processed paper matching '%s'", " ".join(args))
+            log.info("Processed papers: %s", ", ".join(d["title"] for d in processed))
+            return
+        processed = matches
+
+    log.info("Reprocessing %d paper(s)...", len(processed))
+
+    for doc in processed:
+        title = doc["title"]
+        rm_name = doc["remarkable_doc_name"]
+        item_key = doc["zotero_item_key"]
+        log.info("Reprocessing: %s", title)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            zip_path = Path(tmpdir) / f"{rm_name}.zip"
+            pdf_path = Path(tmpdir) / f"{rm_name}.pdf"
+
+            bundle_ok = remarkable_client.download_document_bundle_to(
+                config.RM_FOLDER_ARCHIVE, rm_name, zip_path,
+            )
+
+            if not bundle_ok or not zip_path.exists():
+                log.warning("Could not download bundle for '%s', skipping", title)
+                continue
+
+            highlights = renderer.extract_highlights(zip_path)
+            render_ok = renderer.render_annotated_pdf(zip_path, pdf_path)
+
+            if render_ok and pdf_path.exists():
+                annotated_bytes = pdf_path.read_bytes()
+                saved = obsidian.save_annotated_pdf(title, annotated_bytes)
+                pdf_filename = saved.name if saved else None
+                log.info("Saved annotated PDF to Obsidian vault")
+            else:
+                log.warning("Could not render annotated PDF for '%s'", title)
+                pdf_filename = None
+
+            # Recreate Obsidian note (delete existing first)
+            obsidian.ensure_reading_logs()
+            obsidian.delete_paper_note(title)
+            obsidian.create_paper_note(
+                title=title,
+                authors=doc["authors"],
+                date_added=doc["uploaded_at"],
+                zotero_item_key=item_key,
+                highlights=highlights or None,
+                pdf_filename=pdf_filename,
+            )
+            log.info("Reprocessed: %s", title)
+
+
 def main():
     if "--register" in sys.argv:
         from papers_workflow.remarkable_auth import register_interactive
         register_interactive()
+        return
+
+    if "--reprocess" in sys.argv:
+        idx = sys.argv.index("--reprocess")
+        _reprocess(sys.argv[idx + 1:])
         return
 
     from papers_workflow import config
