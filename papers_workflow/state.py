@@ -93,6 +93,7 @@ class State:
         remarkable_doc_name: str,
         title: str,
         authors: List[str],
+        status: str = "on_remarkable",
     ) -> None:
         self._data["documents"][zotero_item_key] = {
             "zotero_item_key": zotero_item_key,
@@ -101,10 +102,15 @@ class State:
             "remarkable_doc_name": remarkable_doc_name,
             "title": title,
             "authors": authors,
-            "status": "on_remarkable",
+            "status": status,
             "uploaded_at": datetime.now(timezone.utc).isoformat(),
             "processed_at": None,
         }
+
+    def set_status(self, zotero_item_key: str, status: str) -> None:
+        doc = self._data["documents"].get(zotero_item_key)
+        if doc:
+            doc["status"] = status
 
     def mark_processed(self, zotero_item_key: str) -> None:
         doc = self._data["documents"].get(zotero_item_key)

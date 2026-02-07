@@ -9,6 +9,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import requests
+
 log = logging.getLogger("papers_workflow")
 
 
@@ -42,6 +44,34 @@ def main():
         state = State()
         sent_count = 0
         synced_count = 0
+
+        # -- Retry papers awaiting PDF sync --
+        awaiting = state.documents_with_status("awaiting_pdf")
+        if awaiting:
+            log.info("Retrying %d papers awaiting PDF sync...", len(awaiting))
+            remarkable_client.ensure_folders()
+            for doc in awaiting:
+                title = doc["title"]
+                att_key = doc["zotero_attachment_key"]
+                item_key = doc["zotero_item_key"]
+                try:
+                    pdf_bytes = zotero_client.download_pdf(att_key)
+                    log.info("PDF now available for '%s' (%d bytes)", title, len(pdf_bytes))
+                    remarkable_client.upload_pdf_bytes(
+                        pdf_bytes, config.RM_FOLDER_TO_READ, title
+                    )
+                    zotero_client.add_tag(item_key, config.ZOTERO_TAG_TO_READ)
+                    state.set_status(item_key, "on_remarkable")
+                    sent_count += 1
+                    log.info("Sent to reMarkable: %s", title)
+                except requests.exceptions.HTTPError as e:
+                    if e.response is not None and e.response.status_code == 404:
+                        log.info("PDF still not synced for '%s', will retry", title)
+                    else:
+                        log.warning("Failed to retry '%s': %s", title, e)
+                except Exception:
+                    log.exception("Failed to retry '%s'", title)
+            state.save()
 
         # -- Step 1: Poll Zotero for new papers --
         log.info("Step 1: Checking Zotero for new papers...")
@@ -112,7 +142,25 @@ def main():
                             if title in existing_on_rm:
                                 log.info("Already on reMarkable, skipping upload: %s", title)
                             else:
-                                pdf_bytes = zotero_client.download_pdf(att_key)
+                                try:
+                                    pdf_bytes = zotero_client.download_pdf(att_key)
+                                except requests.exceptions.HTTPError as e:
+                                    if e.response is not None and e.response.status_code == 404:
+                                        log.warning(
+                                            "PDF not yet synced to Zotero cloud for '%s', "
+                                            "will retry next run", title,
+                                        )
+                                        state.add_document(
+                                            zotero_item_key=item_key,
+                                            zotero_attachment_key=att_key,
+                                            zotero_attachment_md5=att_md5,
+                                            remarkable_doc_name=title,
+                                            title=title,
+                                            authors=authors,
+                                            status="awaiting_pdf",
+                                        )
+                                        continue
+                                    raise
                                 log.info("Downloaded PDF (%d bytes)", len(pdf_bytes))
                                 remarkable_client.upload_pdf_bytes(
                                     pdf_bytes, config.RM_FOLDER_TO_READ, title
