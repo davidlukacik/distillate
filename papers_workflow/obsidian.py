@@ -14,7 +14,7 @@ from papers_workflow import config
 log = logging.getLogger(__name__)
 
 _DATAVIEW_TEMPLATE = """\
-# Papers Dataview
+# Papers List
 
 ```dataview
 TABLE date_added as "Added", date_read as "Read", join(authors, ", ") as "Authors"
@@ -40,7 +40,7 @@ def ensure_reading_logs() -> None:
     if d is None:
         return
 
-    dataview_path = d / "Papers Dataview.md"
+    dataview_path = d / "Papers List.md"
     if not dataview_path.exists():
         dataview_path.write_text(
             _DATAVIEW_TEMPLATE.format(folder=config.OBSIDIAN_PAPERS_FOLDER)
