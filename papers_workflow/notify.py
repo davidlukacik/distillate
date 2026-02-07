@@ -13,15 +13,25 @@ def send(title: str, message: str) -> None:
         log.debug("Notifications only supported on macOS, skipping")
         return
 
-    script = (
-        f'display notification "{_escape(message)}" '
-        f'with title "{_escape(title)}"'
-    )
     try:
         subprocess.run(
-            ["osascript", "-e", script],
+            ["terminal-notifier", "-title", title, "-message", message,
+             "-group", "papers-workflow"],
             capture_output=True, timeout=10,
         )
+    except FileNotFoundError:
+        # Fallback to osascript if terminal-notifier not installed
+        script = (
+            f'display notification "{_escape(message)}" '
+            f'with title "{_escape(title)}"'
+        )
+        try:
+            subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True, timeout=10,
+            )
+        except Exception as e:
+            log.debug("Failed to send notification: %s", e)
     except Exception as e:
         log.debug("Failed to send notification: %s", e)
 
