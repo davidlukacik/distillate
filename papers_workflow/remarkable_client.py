@@ -80,12 +80,23 @@ def upload_pdf(pdf_path: Path, folder: str, title: str) -> None:
 
 
 def upload_pdf_bytes(pdf_bytes: bytes, folder: str, title: str) -> None:
-    """Upload PDF bytes to a reMarkable folder with a given title."""
+    """Upload PDF bytes to a reMarkable folder with a given title.
+
+    If a document with the same name already exists, skips the upload.
+    """
     sanitized = _sanitize_filename(title)
     with tempfile.TemporaryDirectory() as tmpdir:
         dest = Path(tmpdir) / f"{sanitized}.pdf"
         dest.write_bytes(pdf_bytes)
-        _run(["put", str(dest), f"/{folder}/"])
+        result = _run(["put", str(dest), f"/{folder}/"], check=False)
+        if result.returncode != 0:
+            if "entry already exists" in result.stderr:
+                log.info("Already on reMarkable, skipping: '%s'", title)
+                return
+            raise RuntimeError(
+                f"rmapi put failed (exit {result.returncode}): "
+                f"{result.stderr.strip()}"
+            )
     log.info("Uploaded '%s' to /%s/", title, folder)
 
 

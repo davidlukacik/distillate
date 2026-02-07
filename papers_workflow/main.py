@@ -80,9 +80,14 @@ def main():
                     new_papers = zotero_client.filter_new_papers(items)
                     log.info("Found %d new papers", len(new_papers))
 
-                    # Ensure reMarkable folders exist
+                    # Ensure reMarkable folders exist and get existing docs
                     if new_papers:
                         remarkable_client.ensure_folders()
+                        existing_on_rm = set(
+                            remarkable_client.list_folder(config.RM_FOLDER_TO_READ)
+                        )
+                    else:
+                        existing_on_rm = set()
 
                     for paper in new_papers:
                         try:
@@ -102,14 +107,15 @@ def main():
                             att_key = attachment["key"]
                             att_md5 = attachment["data"].get("md5", "")
 
-                            # Download PDF
-                            pdf_bytes = zotero_client.download_pdf(att_key)
-                            log.info("Downloaded PDF (%d bytes)", len(pdf_bytes))
-
-                            # Upload to reMarkable with paper title
-                            remarkable_client.upload_pdf_bytes(
-                                pdf_bytes, config.RM_FOLDER_TO_READ, title
-                            )
+                            # Upload to reMarkable (skip if already there)
+                            if title in existing_on_rm:
+                                log.info("Already on reMarkable, skipping upload: %s", title)
+                            else:
+                                pdf_bytes = zotero_client.download_pdf(att_key)
+                                log.info("Downloaded PDF (%d bytes)", len(pdf_bytes))
+                                remarkable_client.upload_pdf_bytes(
+                                    pdf_bytes, config.RM_FOLDER_TO_READ, title
+                                )
 
                             # Tag in Zotero
                             zotero_client.add_tag(item_key, config.ZOTERO_TAG_TO_READ)

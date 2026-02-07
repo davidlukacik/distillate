@@ -46,8 +46,9 @@ def _post(path: str, **kwargs) -> requests.Response:
 
 
 def _patch(path: str, **kwargs) -> requests.Response:
+    headers = {**_HEADERS, **kwargs.pop("headers", {})}
     resp = requests.patch(
-        _url(path), headers=_HEADERS,
+        _url(path), headers=headers,
         timeout=config.HTTP_TIMEOUT, **kwargs,
     )
     _handle_backoff(resp)
@@ -151,7 +152,7 @@ def set_tags(item_key: str, tags: List[str]) -> None:
     _patch(
         f"/items/{item_key}",
         json={"tags": [{"tag": t} for t in tags]},
-        headers={**_HEADERS, "If-Unmodified-Since-Version": str(version)},
+        headers={"If-Unmodified-Since-Version": str(version)},
     )
     log.info("Set tags on %s: %s", item_key, tags)
 
@@ -170,7 +171,7 @@ def add_tag(item_key: str, tag: str) -> None:
     _patch(
         f"/items/{item_key}",
         json={"tags": [{"tag": t} for t in existing_tags]},
-        headers={**_HEADERS, "If-Unmodified-Since-Version": str(version)},
+        headers={"If-Unmodified-Since-Version": str(version)},
     )
     log.info("Added tag '%s' to %s", tag, item_key)
 
@@ -189,7 +190,7 @@ def replace_tag(item_key: str, old_tag: str, new_tag: str) -> None:
     _patch(
         f"/items/{item_key}",
         json={"tags": [{"tag": t} for t in new_tags]},
-        headers={**_HEADERS, "If-Unmodified-Since-Version": str(version)},
+        headers={"If-Unmodified-Since-Version": str(version)},
     )
     log.info("Replaced tag '%s' → '%s' on %s", old_tag, new_tag, item_key)
 
