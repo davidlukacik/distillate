@@ -34,6 +34,44 @@ def _papers_dir() -> Optional[Path]:
     return d
 
 
+def _to_read_dir() -> Optional[Path]:
+    """Return the To Read subdirectory in the papers folder, or None if unconfigured."""
+    d = _papers_dir()
+    if d is None:
+        return None
+    tr = d / "To Read"
+    tr.mkdir(parents=True, exist_ok=True)
+    return tr
+
+
+def save_to_read_pdf(title: str, pdf_bytes: bytes) -> Optional[Path]:
+    """Save an original PDF to the Obsidian vault To Read folder.
+
+    Returns the path to the saved file, or None if Obsidian is unconfigured.
+    """
+    tr = _to_read_dir()
+    if tr is None:
+        return None
+
+    sanitized = _sanitize_note_name(title)
+    pdf_path = tr / f"{sanitized}.pdf"
+    pdf_path.write_bytes(pdf_bytes)
+    log.info("Saved PDF to To Read: %s", pdf_path)
+    return pdf_path
+
+
+def delete_to_read_pdf(title: str) -> None:
+    """Delete a PDF from the To Read folder after processing."""
+    tr = _to_read_dir()
+    if tr is None:
+        return
+
+    sanitized = _sanitize_note_name(title)
+    pdf_path = tr / f"{sanitized}.pdf"
+    if pdf_path.exists():
+        pdf_path.unlink()
+        log.info("Removed from To Read: %s", pdf_path)
+
 
 def save_annotated_pdf(title: str, pdf_bytes: bytes) -> Optional[Path]:
     """Save an annotated PDF to the Obsidian vault papers folder.

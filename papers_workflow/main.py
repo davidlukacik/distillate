@@ -60,6 +60,8 @@ def main():
                     remarkable_client.upload_pdf_bytes(
                         pdf_bytes, config.RM_FOLDER_TO_READ, title
                     )
+                    obsidian.save_to_read_pdf(title, pdf_bytes)
+                    zotero_client.delete_attachment(att_key)
                     zotero_client.add_tag(item_key, config.ZOTERO_TAG_TO_READ)
                     state.set_status(item_key, "on_remarkable")
                     sent_count += 1
@@ -165,6 +167,10 @@ def main():
                                 remarkable_client.upload_pdf_bytes(
                                     pdf_bytes, config.RM_FOLDER_TO_READ, title
                                 )
+                                # Save original to Obsidian To Read folder
+                                obsidian.save_to_read_pdf(title, pdf_bytes)
+                                # Delete from Zotero to free storage
+                                zotero_client.delete_attachment(att_key)
 
                             # Tag in Zotero
                             zotero_client.add_tag(item_key, config.ZOTERO_TAG_TO_READ)
@@ -242,13 +248,13 @@ def main():
                     if saved:
                         pdf_filename = saved.name
                         log.info("Saved annotated PDF to Obsidian vault")
-                    # Delete original PDF from Zotero to free storage
-                    zotero_client.delete_attachment(att_key)
                 else:
                     log.warning(
-                        "Could not get annotated PDF for '%s', "
-                        "Zotero PDF left unchanged", rm_name,
+                        "Could not get annotated PDF for '%s'", rm_name,
                     )
+
+                # Clean up original from To Read folder
+                obsidian.delete_to_read_pdf(doc["title"])
 
             # Update Zotero tag
             zotero_client.replace_tag(
