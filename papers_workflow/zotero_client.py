@@ -56,6 +56,17 @@ def _patch(path: str, **kwargs) -> requests.Response:
     return resp
 
 
+def _delete(path: str, **kwargs) -> requests.Response:
+    headers = {**_HEADERS, **kwargs.pop("headers", {})}
+    resp = requests.delete(
+        _url(path), headers=headers,
+        timeout=config.HTTP_TIMEOUT, **kwargs,
+    )
+    _handle_backoff(resp)
+    resp.raise_for_status()
+    return resp
+
+
 def _handle_backoff(resp: requests.Response) -> None:
     backoff = resp.headers.get("Backoff") or resp.headers.get("Retry-After")
     if backoff:
@@ -250,6 +261,20 @@ def upload_pdf(
     )
     register_resp.raise_for_status()
     log.info("Uploaded annotated PDF for attachment %s", attachment_key)
+
+
+def delete_attachment(attachment_key: str) -> None:
+    """Delete a PDF attachment item from Zotero (file + metadata entry).
+
+    The parent item (paper metadata, tags, etc.) is preserved.
+    """
+    resp = _get(f"/items/{attachment_key}")
+    version = resp.json()["version"]
+    _delete(
+        f"/items/{attachment_key}",
+        headers={"If-Unmodified-Since-Version": str(version)},
+    )
+    log.info("Deleted attachment %s from Zotero", attachment_key)
 
 
 # -- Convenience: extract metadata --

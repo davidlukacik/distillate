@@ -34,6 +34,23 @@ def _papers_dir() -> Optional[Path]:
     return d
 
 
+
+def save_annotated_pdf(title: str, pdf_bytes: bytes) -> Optional[Path]:
+    """Save an annotated PDF to the Obsidian vault papers folder.
+
+    Returns the path to the saved file, or None if Obsidian is unconfigured.
+    """
+    d = _papers_dir()
+    if d is None:
+        return None
+
+    sanitized = _sanitize_note_name(title)
+    pdf_path = d / f"{sanitized}.pdf"
+    pdf_path.write_bytes(pdf_bytes)
+    log.info("Saved annotated PDF: %s", pdf_path)
+    return pdf_path
+
+
 def ensure_reading_logs() -> None:
     """Create the Dataview reading log note if it doesn't exist."""
     d = _papers_dir()
@@ -59,6 +76,7 @@ def create_paper_note(
     date_added: str,
     zotero_item_key: str,
     highlights: Optional[List[str]] = None,
+    pdf_filename: Optional[str] = None,
 ) -> Optional[Path]:
     """Create an Obsidian note for a read paper.
 
@@ -88,6 +106,12 @@ def create_paper_note(
     else:
         highlights_md = "*No highlights extracted.*"
 
+    # Optional PDF frontmatter line
+    pdf_yaml = f'\npdf: "[[{pdf_filename}]]"' if pdf_filename else ""
+
+    # Optional PDF embed in note body
+    pdf_embed = f"![[{pdf_filename}]]\n\n" if pdf_filename else ""
+
     content = f"""\
 ---
 title: "{_escape_yaml(title)}"
@@ -95,14 +119,14 @@ authors:
 {authors_yaml}
 date_added: {date_added[:10]}
 date_read: {today}
-zotero: "zotero://select/items/{zotero_item_key}"
+zotero: "zotero://select/items/{zotero_item_key}"{pdf_yaml}
 tags:
 {tags_yaml}
 ---
 
 # {title}
 
-## Highlights
+{pdf_embed}## Highlights
 
 {highlights_md}
 

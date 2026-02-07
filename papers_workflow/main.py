@@ -187,13 +187,15 @@ def main():
                         config.RM_FOLDER_READ, rm_name, pdf_path,
                     )
 
+                pdf_filename = None
                 if render_ok and pdf_path.exists():
                     annotated_bytes = pdf_path.read_bytes()
-                    zotero_client.upload_pdf(
-                        att_key, annotated_bytes, att_md5,
-                        filename=f"{rm_name}.pdf",
-                    )
-                    log.info("Uploaded annotated PDF to Zotero")
+                    saved = obsidian.save_annotated_pdf(doc["title"], annotated_bytes)
+                    if saved:
+                        pdf_filename = saved.name
+                        log.info("Saved annotated PDF to Obsidian vault")
+                    # Delete original PDF from Zotero to free storage
+                    zotero_client.delete_attachment(att_key)
                 else:
                     log.warning(
                         "Could not get annotated PDF for '%s', "
@@ -213,6 +215,7 @@ def main():
                 date_added=doc["uploaded_at"],
                 zotero_item_key=item_key,
                 highlights=highlights or None,
+                pdf_filename=pdf_filename,
             )
             obsidian.append_to_reading_log(doc["title"], doc["authors"])
 
