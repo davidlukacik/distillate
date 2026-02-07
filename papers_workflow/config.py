@@ -53,7 +53,7 @@ ZOTERO_TAG_READ: str = os.environ.get("ZOTERO_TAG_READ", "read").strip()
 
 OBSIDIAN_VAULT_PATH: str = os.environ.get("OBSIDIAN_VAULT_PATH", "").strip()
 OBSIDIAN_PAPERS_FOLDER: str = os.environ.get("OBSIDIAN_PAPERS_FOLDER", "Papers").strip()
-OBSIDIAN_LOG_FILE: str = os.environ.get("OBSIDIAN_LOG_FILE", "Reading Log (Simple).md").strip()
+OBSIDIAN_LOG_FILE: str = os.environ.get("OBSIDIAN_LOG_FILE", "Reading Log.md").strip()
 
 HTTP_TIMEOUT: int = int(os.environ.get("HTTP_TIMEOUT", "30"))
 LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO").strip().upper()
