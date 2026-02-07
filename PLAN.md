@@ -286,7 +286,7 @@ External tool (installed separately):
 |---|---|
 | `rmapi` | reMarkable Cloud CLI client (Go binary) |
 
-`rmapi` install: `go install github.com/juruen/rmapi@latest` or download a binary release from GitHub.
+`rmapi` install: Download a binary from https://github.com/ddvk/rmapi/releases (the original `juruen/rmapi` is archived and no longer works).
 
 ---
 
@@ -364,12 +364,12 @@ If a note with the same filename already exists, do not overwrite — the user m
 1. ~~**Project scaffolding** — `pyproject.toml`, `.gitignore`, `.env.example`, directory structure~~ ✅
 2. ~~**`config.py`** — env var loading, validation~~ ✅
 3. ~~**reMarkable registration** — `--register` subcommand~~ ✅
-4. **`state.py`** — JSON state read/write with atomic file updates
-5. **`zotero_client.py`** — polling, new item detection, PDF download, tagging, PDF upload
-6. **`remarkable_client.py`** — `rmapi` wrapper, folder creation, PDF upload, folder listing, document download, move
-7. **`renderer.py`** — annotated PDF via `rmrl` + highlight text extraction via `remarks`
-8. **`obsidian.py`** — markdown note creation with frontmatter and highlights
-9. **`notify.py`** — macOS notification via `osascript`
-10. **`main.py`** — wire up the one-shot flow (steps 1→2→3)
+4. ~~**`state.py`** — JSON state read/write with atomic file updates~~ ✅
+5. ~~**`zotero_client.py`** — polling, new item detection, PDF download, tagging, PDF upload~~ ✅
+6. ~~**`remarkable_client.py`** — `rmapi` wrapper, folder creation, PDF upload, folder listing, document download, move~~ ✅
+7. **`renderer.py`** — annotated PDF via `rmrl` + highlight text extraction via `remarks` *(deferred — `rmapi geta` handles annotation rendering for now)*
+8. ~~**`obsidian.py`** — markdown note creation with frontmatter and highlights~~ ✅
+9. ~~**`notify.py`** — macOS notification via `osascript`~~ ✅
+10. ~~**`main.py`** — wire up the one-shot flow (steps 1→2→3)~~ ✅
 11. **Scheduling** — launchd plist or cron setup
-12. **Testing** — manual end-to-end test with a real paper
+12. **Testing** — Step 1 (Zotero → reMarkable) tested ✅ with 35 papers. Step 2 (reMarkable → Zotero/Obsidian) pending.
