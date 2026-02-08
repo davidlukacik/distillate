@@ -131,6 +131,7 @@ def create_paper_note(
     journal: str = "",
     summary: str = "",
     takeaway: str = "",
+    topic_tags: Optional[List[str]] = None,
 ) -> Optional[Path]:
     """Create an Obsidian note for a read paper.
 
@@ -152,7 +153,8 @@ def create_paper_note(
 
     # Build YAML frontmatter
     authors_yaml = "\n".join(f"  - {a}" for a in authors) if authors else "  - Unknown"
-    tags_yaml = "\n".join(f"  - {t}" for t in ["paper", "read"])
+    all_tags = ["paper", "read"] + (topic_tags or [])
+    tags_yaml = "\n".join(f"  - {t}" for t in all_tags)
 
     # Build highlights section
     if highlights:
@@ -218,6 +220,7 @@ def create_skimmed_note(
     url: str = "",
     publication_date: str = "",
     journal: str = "",
+    topic_tags: Optional[List[str]] = None,
 ) -> Optional[Path]:
     """Create a minimal Obsidian note for a skimmed paper."""
     d = _papers_dir()
@@ -234,7 +237,8 @@ def create_skimmed_note(
     today = date.today().isoformat()
 
     authors_yaml = "\n".join(f"  - {a}" for a in authors) if authors else "  - Unknown"
-    tags_yaml = "\n".join(f"  - {t}" for t in ["paper", "skimmed"])
+    all_tags = ["paper", "skimmed"] + (topic_tags or [])
+    tags_yaml = "\n".join(f"  - {t}" for t in all_tags)
 
     optional = ""
     if doi:

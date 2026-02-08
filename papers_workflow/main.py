@@ -124,6 +124,7 @@ def _reprocess(args: list[str]) -> None:
                 journal=meta.get("journal", ""),
                 summary=note_summary,
                 takeaway=log_sentence,
+                topic_tags=meta.get("tags"),
             )
 
             # Add Obsidian deep link in Zotero
@@ -232,6 +233,53 @@ def _dry_run() -> None:
     log.info("=== DRY RUN complete ===")
 
 
+def _backfill_tags() -> None:
+    """Backfill topic tags for papers that don't have them yet."""
+    from papers_workflow import config
+    from papers_workflow import summarizer
+    from papers_workflow import zotero_client
+    from papers_workflow.state import State
+
+    logging.basicConfig(
+        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    state = State()
+    count = 0
+
+    for key, doc in state.documents.items():
+        meta = doc.get("metadata", {})
+        if meta.get("tags"):
+            continue
+
+        # Fetch metadata from Zotero if missing
+        if not meta.get("abstract"):
+            items = zotero_client.get_items_by_keys([key])
+            if items:
+                meta = zotero_client.extract_metadata(items[0])
+                doc["metadata"] = meta
+
+        abstract = meta.get("abstract", "")
+        if not abstract:
+            log.info("No abstract for '%s', skipping tags", doc["title"])
+            continue
+
+        tags, paper_type = summarizer.extract_tags(doc["title"], abstract)
+        if tags:
+            meta["tags"] = tags
+            log.info("Tagged '%s': %s", doc["title"], ", ".join(tags))
+        if paper_type:
+            meta["paper_type"] = paper_type
+
+        doc["metadata"] = meta
+        state.save()
+        count += 1
+
+    log.info("Backfilled tags for %d paper(s)", count)
+
+
 def main():
     if "--register" in sys.argv:
         from papers_workflow.remarkable_auth import register_interactive
@@ -250,6 +298,10 @@ def main():
 
     if "--dry-run" in sys.argv:
         _dry_run()
+        return
+
+    if "--backfill-tags" in sys.argv:
+        _backfill_tags()
         return
 
     from papers_workflow import config
@@ -425,6 +477,15 @@ def main():
                                 else:
                                     zotero_client.delete_attachment(att_key)
 
+                            # Extract topic tags
+                            tags, paper_type = summarizer.extract_tags(
+                                title, meta.get("abstract", ""),
+                            )
+                            if tags:
+                                meta["tags"] = tags
+                            if paper_type:
+                                meta["paper_type"] = paper_type
+
                             # Tag in Zotero
                             zotero_client.add_tag(item_key, config.ZOTERO_TAG_TO_READ)
 
@@ -550,6 +611,7 @@ def main():
                     journal=meta.get("journal", ""),
                     summary=note_summary,
                     takeaway=log_sentence,
+                    topic_tags=meta.get("tags"),
                 )
 
                 # Add Obsidian deep link in Zotero
@@ -624,6 +686,7 @@ def main():
                     url=meta.get("url", ""),
                     publication_date=meta.get("publication_date", ""),
                     journal=meta.get("journal", ""),
+                    topic_tags=meta.get("tags"),
                 )
 
                 # Add Obsidian deep link in Zotero

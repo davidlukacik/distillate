@@ -85,7 +85,105 @@ def summarize_skimmed_paper(
     return _call_claude(prompt) or _fallback_skimmed(title, abstract)
 
 
-def _call_claude(prompt: str) -> Optional[str]:
+def extract_tags(title: str, abstract: str = "") -> Tuple[List[str], str]:
+    """Extract topic tags and paper type from a paper's abstract.
+
+    Returns (tags, paper_type):
+      - tags: 3-5 lowercase kebab-case topic tags
+      - paper_type: one of empirical, methods, review, opinion, theoretical
+    """
+    if not config.ANTHROPIC_API_KEY or not abstract:
+        return [], ""
+
+    prompt = (
+        f"Analyze this research paper and return:\n"
+        f"1. 3-5 topic tags (lowercase, kebab-case like 'bayesian-inference' or "
+        f"'protein-engineering'). Cover the research area, methodology, and "
+        f"application domain.\n"
+        f"2. Paper type: one of empirical, methods, review, opinion, theoretical.\n\n"
+        f"Paper: {title}\nAbstract: {abstract}\n\n"
+        f"Format (exactly):\ntags: tag1, tag2, tag3\ntype: paper_type"
+    )
+
+    result = _call_claude(prompt, max_tokens=100)
+    if not result:
+        return [], ""
+
+    tags = []
+    paper_type = ""
+    for line in result.strip().split("\n"):
+        line = line.strip().lower()
+        if line.startswith("tags:"):
+            raw = line[5:].strip()
+            tags = [t.strip() for t in raw.split(",") if t.strip()]
+        elif line.startswith("type:"):
+            paper_type = line[5:].strip()
+
+    return tags, paper_type
+
+
+def suggest_papers(
+    unread: List[dict],
+    recent_reads: List[dict],
+) -> Optional[str]:
+    """Ask Claude to pick the 3 best papers to read next.
+
+    Returns the raw response text, or None on failure.
+    """
+    if not config.ANTHROPIC_API_KEY:
+        return None
+
+    # Build recent reads context
+    reads_lines = []
+    for p in recent_reads[:10]:
+        tags = ", ".join(p.get("tags", []))
+        summary = p.get("summary", "")
+        status = p.get("reading_status", "read")
+        reads_lines.append(f"- [{status}] {p['title']} [{tags}] — {summary}")
+
+    # Build unread queue
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    queue_lines = []
+    for i, p in enumerate(unread, 1):
+        tags = ", ".join(p.get("tags", []))
+        paper_type = p.get("paper_type", "")
+        uploaded = p.get("uploaded_at", "")
+        days = 0
+        if uploaded:
+            try:
+                dt = datetime.fromisoformat(uploaded)
+                days = (now - dt).days
+            except (ValueError, TypeError):
+                pass
+        type_str = f" ({paper_type})" if paper_type else ""
+        queue_lines.append(
+            f"{i}. {p['title']} [{tags}]{type_str} — {days} days in queue"
+        )
+
+    if not queue_lines:
+        return None
+
+    reads_section = "\n".join(reads_lines) if reads_lines else "(no recent reads)"
+
+    prompt = (
+        f"I keep a reading queue of research papers. Help me pick the 3 I "
+        f"should read next.\n\n"
+        f"Papers I've read recently:\n{reads_section}\n\n"
+        f"My reading queue:\n" + "\n".join(queue_lines) + "\n\n"
+        f"Pick exactly 3 papers by number. For each, give one sentence "
+        f"explaining why I should read it now. Balance:\n"
+        f"- Relevance to my recent interests\n"
+        f"- Diversity (don't pick 3 on the same topic)\n"
+        f"- Queue age (papers sitting too long deserve attention)\n\n"
+        f"Format:\n[number]. [title] — [reason]\n[number]. [title] — [reason]\n"
+        f"[number]. [title] — [reason]"
+    )
+
+    return _call_claude(prompt, max_tokens=300)
+
+
+def _call_claude(prompt: str, max_tokens: int = 400) -> Optional[str]:
     """Call Claude API and return the response text, or None on failure."""
     try:
         import anthropic
@@ -93,7 +191,7 @@ def _call_claude(prompt: str) -> Optional[str]:
         client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=400,
+            max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
         )
         text = response.content[0].text.strip()
