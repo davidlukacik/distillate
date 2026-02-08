@@ -302,9 +302,14 @@ def append_to_reading_log(
     log.info("Appended to Reading Log: %s (%s)", title, status)
 
 
-def get_obsidian_uri(title: str) -> Optional[str]:
-    """Return an obsidian:// URI that opens the paper note in the vault.
+_REDIRECT_BASE = "https://rlacombe.github.io/papers-workflow/"
 
+
+def get_obsidian_uri(title: str) -> Optional[str]:
+    """Return an HTTPS redirect URL that opens the paper note in Obsidian.
+
+    Uses a GitHub Pages redirect to work on both desktop and iOS (where
+    Zotero strips custom URL schemes from linked_url attachments).
     Returns None if vault name is not configured.
     """
     if not config.OBSIDIAN_VAULT_NAME:
@@ -312,7 +317,11 @@ def get_obsidian_uri(title: str) -> Optional[str]:
 
     sanitized = _sanitize_note_name(title)
     file_path = f"{config.OBSIDIAN_PAPERS_FOLDER}/{sanitized}"
-    return f"obsidian://open?vault={quote(config.OBSIDIAN_VAULT_NAME)}&file={quote(file_path)}"
+    return (
+        f"{_REDIRECT_BASE}"
+        f"?vault={quote(config.OBSIDIAN_VAULT_NAME)}"
+        f"&file={quote(file_path)}"
+    )
 
 
 def _sanitize_note_name(name: str) -> str:
