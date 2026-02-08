@@ -45,7 +45,7 @@ def send_weekly_digest(days: int = 7) -> None:
         "from": config.DIGEST_FROM,
         "to": [config.DIGEST_TO],
         "subject": subject,
-        "text": body,
+        "html": body,
     })
     log.info("Sent weekly digest to %s: %s", config.DIGEST_TO, result)
 
@@ -56,43 +56,51 @@ def _build_subject():
 
 
 def _paper_url(p):
-    """Return a URL to the paper (DOI or URL), or empty string."""
+    """Return a URL to the paper, preferring direct URL over DOI."""
     meta = p.get("metadata", {})
-    doi = meta.get("doi", "")
     url = meta.get("url", "")
-    if doi:
-        return f"https://doi.org/{doi}"
+    doi = meta.get("doi", "")
     if url:
         return url
+    if doi:
+        return f"https://doi.org/{doi}"
     return ""
 
 
-def _paper_line(p):
+def _paper_html(p):
     title = p.get("title", "Untitled")
     summary = p.get("summary", "")
     url = _paper_url(p)
 
-    line = f"- {title}"
-    if summary:
-        line += f" — {summary}"
-    if url:
-        line += f"\n  {url}"
-    return line
+    summary_html = f" &mdash; {summary}" if summary else ""
+    url_html = f'<br><a href="{url}">{url}</a>' if url else ""
+
+    return (
+        f"<li style='margin-bottom: 10px;'>"
+        f"<strong>{title}</strong>{summary_html}{url_html}"
+        f"</li>"
+    )
 
 
 def _build_body(read, skimmed):
-    lines = []
+    lines = [
+        "<html><body style='font-family: sans-serif; max-width: 600px; "
+        "margin: 0 auto; padding: 20px; color: #333;'>",
+    ]
 
     if read:
-        lines.append("Papers I read this week:\n")
+        lines.append("<p>Papers I read this week:</p>")
+        lines.append("<ul style='padding-left: 20px;'>")
         for p in read:
-            lines.append(_paper_line(p))
-        lines.append("")
+            lines.append(_paper_html(p))
+        lines.append("</ul>")
 
     if skimmed:
-        lines.append("I also saw the following papers:\n")
+        lines.append("<p>I also saw the following papers:</p>")
+        lines.append("<ul style='padding-left: 20px;'>")
         for p in skimmed:
-            lines.append(_paper_line(p))
-        lines.append("")
+            lines.append(_paper_html(p))
+        lines.append("</ul>")
 
+    lines.append("</body></html>")
     return "\n".join(lines)
