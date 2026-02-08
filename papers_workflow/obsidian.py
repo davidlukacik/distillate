@@ -130,6 +130,7 @@ def create_paper_note(
     publication_date: str = "",
     journal: str = "",
     summary: str = "",
+    takeaway: str = "",
 ) -> Optional[Path]:
     """Create an Obsidian note for a read paper.
 
@@ -174,7 +175,8 @@ def create_paper_note(
     # Optional PDF embed in note body
     pdf_embed = f"![[{pdf_filename}]]\n\n" if pdf_filename else ""
 
-    # AI summary at top of note
+    # Short takeaway as blockquote, then longer summary
+    takeaway_md = f"> {takeaway}\n\n" if takeaway else ""
     summary_md = f"{summary}\n\n" if summary else ""
 
     # Optional abstract section
@@ -197,7 +199,7 @@ tags:
 
 # {title}
 
-{summary_md}{pdf_embed}{abstract_md}## Highlights
+{takeaway_md}{summary_md}{pdf_embed}{abstract_md}## Highlights
 
 {highlights_md}
 """

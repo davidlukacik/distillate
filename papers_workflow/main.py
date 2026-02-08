@@ -120,12 +120,19 @@ def _reprocess(args: list[str]) -> None:
                 publication_date=meta.get("publication_date", ""),
                 journal=meta.get("journal", ""),
                 summary=note_summary,
+                takeaway=log_sentence,
             )
 
             # Add Obsidian deep link in Zotero
             obsidian_uri = obsidian.get_obsidian_uri(title)
             if obsidian_uri:
                 zotero_client.create_obsidian_link(item_key, obsidian_uri)
+
+            # Sync note to Zotero
+            zotero_note_html = zotero_client._build_note_html(
+                takeaway=log_sentence, summary=note_summary, highlights=highlights,
+            )
+            zotero_client.set_note(item_key, zotero_note_html)
 
             # Update reading log
             obsidian.append_to_reading_log(title, "Read", log_sentence)
@@ -450,12 +457,20 @@ def main():
                     publication_date=meta.get("publication_date", ""),
                     journal=meta.get("journal", ""),
                     summary=note_summary,
+                    takeaway=log_sentence,
                 )
 
                 # Add Obsidian deep link in Zotero
                 obsidian_uri = obsidian.get_obsidian_uri(doc["title"])
                 if obsidian_uri:
                     zotero_client.create_obsidian_link(item_key, obsidian_uri)
+
+                # Sync note to Zotero
+                zotero_note_html = zotero_client._build_note_html(
+                    takeaway=log_sentence, summary=note_summary,
+                    highlights=highlights,
+                )
+                zotero_client.set_note(item_key, zotero_note_html)
 
                 # Append to reading log
                 obsidian.append_to_reading_log(doc["title"], "Read", log_sentence)
@@ -529,6 +544,10 @@ def main():
                 obsidian.append_to_reading_log(
                     doc["title"], "Skimmed", skimmed_summary,
                 )
+
+                # Sync note to Zotero
+                zotero_note_html = zotero_client._build_note_html(takeaway=skimmed_summary)
+                zotero_client.set_note(item_key, zotero_note_html)
 
                 # Move to Archive on reMarkable
                 remarkable_client.move_document(

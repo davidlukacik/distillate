@@ -288,6 +288,68 @@ def create_obsidian_link(parent_key: str, obsidian_uri: str) -> Optional[str]:
     return None
 
 
+# -- Notes --
+
+
+def set_note(parent_key: str, html_content: str) -> Optional[str]:
+    """Create or update a child note on a Zotero item.
+
+    Looks for an existing child note to update. If none exists, creates one.
+    Returns the note's item key on success, None on failure.
+    """
+    resp = _get(f"/items/{parent_key}/children")
+    for child in resp.json():
+        data = child.get("data", {})
+        if data.get("itemType") == "note":
+            # Update existing note
+            version = child["version"]
+            _patch(
+                f"/items/{child['key']}",
+                json={"note": html_content},
+                headers={"If-Unmodified-Since-Version": str(version)},
+            )
+            log.info("Updated note on %s", parent_key)
+            return child["key"]
+
+    # Create new note
+    resp = _post(
+        "/items",
+        json=[{
+            "itemType": "note",
+            "parentItem": parent_key,
+            "note": html_content,
+            "tags": [],
+            "relations": {},
+        }],
+    )
+    result = resp.json()
+    successful = result.get("successful", {})
+    if "0" in successful:
+        key = successful["0"]["key"]
+        log.info("Created note %s on %s", key, parent_key)
+        return key
+    log.warning("Failed to create note: %s", result.get("failed"))
+    return None
+
+
+def _build_note_html(
+    takeaway: str = "",
+    summary: str = "",
+    highlights: Optional[List[str]] = None,
+) -> str:
+    """Build HTML content for a Zotero note from summaries and highlights."""
+    parts = []
+    if takeaway:
+        parts.append(f"<blockquote>{takeaway}</blockquote>")
+    if summary:
+        parts.append(f"<p>{summary}</p>")
+    if highlights:
+        parts.append("<h2>Highlights</h2>")
+        for h in highlights:
+            parts.append(f"<p>&ldquo;{h}&rdquo;</p>")
+    return "\n".join(parts)
+
+
 # -- Convenience: extract metadata --
 
 
