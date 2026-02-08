@@ -322,90 +322,93 @@ def main():
 
             log.info("Found read paper: %s", rm_name)
             item_key = doc["zotero_item_key"]
-            att_key = doc["zotero_attachment_key"]
-            att_md5 = doc["zotero_attachment_md5"]
 
-            highlights = None
+            try:
+                highlights = None
 
-            with tempfile.TemporaryDirectory() as tmpdir:
-                zip_path = Path(tmpdir) / f"{rm_name}.zip"
-                pdf_path = Path(tmpdir) / f"{rm_name}.pdf"
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    zip_path = Path(tmpdir) / f"{rm_name}.zip"
+                    pdf_path = Path(tmpdir) / f"{rm_name}.pdf"
 
-                # Download raw document bundle
-                bundle_ok = remarkable_client.download_document_bundle_to(
-                    config.RM_FOLDER_READ, rm_name, zip_path,
+                    # Download raw document bundle
+                    bundle_ok = remarkable_client.download_document_bundle_to(
+                        config.RM_FOLDER_READ, rm_name, zip_path,
+                    )
+
+                    if bundle_ok and zip_path.exists():
+                        # Extract highlighted text
+                        highlights = renderer.extract_highlights(zip_path)
+                        if not highlights:
+                            log.info("No text highlights found for '%s'", rm_name)
+
+                        # Render annotated PDF
+                        render_ok = renderer.render_annotated_pdf(zip_path, pdf_path)
+                    else:
+                        render_ok = False
+
+                    # Fall back to geta if render failed
+                    if not render_ok:
+                        log.info("Falling back to rmapi geta for '%s'", rm_name)
+                        render_ok = remarkable_client.download_annotated_pdf_to(
+                            config.RM_FOLDER_READ, rm_name, pdf_path,
+                        )
+
+                    pdf_filename = None
+                    if render_ok and pdf_path.exists():
+                        annotated_bytes = pdf_path.read_bytes()
+                        saved = obsidian.save_annotated_pdf(doc["title"], annotated_bytes)
+                        if saved:
+                            pdf_filename = saved.name
+                            log.info("Saved annotated PDF to Obsidian vault")
+                    else:
+                        log.warning(
+                            "Could not get annotated PDF for '%s'", rm_name,
+                        )
+
+                    # Clean up original from To Read folder
+                    obsidian.delete_to_read_pdf(doc["title"])
+
+                    # Update linked attachment to point to annotated PDF
+                    linked = zotero_client.get_linked_attachment(item_key)
+                    if saved:
+                        new_att = zotero_client.create_linked_attachment(
+                            item_key, saved.name, str(saved),
+                        )
+                        if new_att and linked:
+                            zotero_client.delete_attachment(linked["key"])
+                    elif linked:
+                        zotero_client.delete_attachment(linked["key"])
+
+                # Update Zotero tag
+                zotero_client.replace_tag(
+                    item_key, config.ZOTERO_TAG_TO_READ, config.ZOTERO_TAG_READ,
                 )
 
-                if bundle_ok and zip_path.exists():
-                    # Extract highlighted text
-                    highlights = renderer.extract_highlights(zip_path)
-                    if not highlights:
-                        log.info("No text highlights found for '%s'", rm_name)
+                # Create Obsidian note with extracted highlights
+                obsidian.ensure_reading_logs()
+                obsidian.create_paper_note(
+                    title=doc["title"],
+                    authors=doc["authors"],
+                    date_added=doc["uploaded_at"],
+                    zotero_item_key=item_key,
+                    highlights=highlights or None,
+                    pdf_filename=pdf_filename,
+                )
+                obsidian.append_to_reading_log(doc["title"], doc["authors"])
 
-                    # Render annotated PDF
-                    render_ok = renderer.render_annotated_pdf(zip_path, pdf_path)
-                else:
-                    render_ok = False
+                # Move to Archive on reMarkable
+                remarkable_client.move_document(
+                    rm_name, config.RM_FOLDER_READ, config.RM_FOLDER_ARCHIVE,
+                )
 
-                # Fall back to geta if render failed
-                if not render_ok:
-                    log.info("Falling back to rmapi geta for '%s'", rm_name)
-                    render_ok = remarkable_client.download_annotated_pdf_to(
-                        config.RM_FOLDER_READ, rm_name, pdf_path,
-                    )
+                # Update state
+                state.mark_processed(item_key)
+                synced_count += 1
+                log.info("Processed: %s", rm_name)
 
-                pdf_filename = None
-                if render_ok and pdf_path.exists():
-                    annotated_bytes = pdf_path.read_bytes()
-                    saved = obsidian.save_annotated_pdf(doc["title"], annotated_bytes)
-                    if saved:
-                        pdf_filename = saved.name
-                        log.info("Saved annotated PDF to Obsidian vault")
-                else:
-                    log.warning(
-                        "Could not get annotated PDF for '%s'", rm_name,
-                    )
-
-                # Clean up original from To Read folder
-                obsidian.delete_to_read_pdf(doc["title"])
-
-                # Update linked attachment to point to annotated PDF
-                linked = zotero_client.get_linked_attachment(item_key)
-                if saved:
-                    new_att = zotero_client.create_linked_attachment(
-                        item_key, saved.name, str(saved),
-                    )
-                    if new_att and linked:
-                        zotero_client.delete_attachment(linked["key"])
-                elif linked:
-                    zotero_client.delete_attachment(linked["key"])
-
-            # Update Zotero tag
-            zotero_client.replace_tag(
-                item_key, config.ZOTERO_TAG_TO_READ, config.ZOTERO_TAG_READ,
-            )
-
-            # Create Obsidian note with extracted highlights
-            obsidian.ensure_reading_logs()
-            obsidian.create_paper_note(
-                title=doc["title"],
-                authors=doc["authors"],
-                date_added=doc["uploaded_at"],
-                zotero_item_key=item_key,
-                highlights=highlights or None,
-                pdf_filename=pdf_filename,
-            )
-            obsidian.append_to_reading_log(doc["title"], doc["authors"])
-
-            # Move to Archive on reMarkable
-            remarkable_client.move_document(
-                rm_name, config.RM_FOLDER_READ, config.RM_FOLDER_ARCHIVE,
-            )
-
-            # Update state
-            state.mark_processed(item_key)
-            synced_count += 1
-            log.info("Processed: %s", rm_name)
+            except Exception:
+                log.exception("Failed to process read paper '%s', skipping", rm_name)
+                continue
 
         state.touch_poll_timestamp()
         state.save()
