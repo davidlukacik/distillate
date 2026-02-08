@@ -205,6 +205,49 @@ def delete_attachment(attachment_key: str) -> None:
     log.info("Deleted attachment %s from Zotero", attachment_key)
 
 
+def get_linked_attachment(item_key: str) -> Optional[Dict[str, Any]]:
+    """Find the first linked file attachment child of an item."""
+    resp = _get(f"/items/{item_key}/children")
+    for child in resp.json():
+        data = child.get("data", {})
+        if (
+            data.get("itemType") == "attachment"
+            and data.get("linkMode") == "linked_file"
+        ):
+            return child
+    return None
+
+
+def create_linked_attachment(
+    parent_key: str, filename: str, local_path: str,
+) -> Optional[str]:
+    """Create a linked file attachment pointing to a local PDF.
+
+    Returns the new attachment's item key, or None on failure.
+    """
+    resp = _post(
+        "/items",
+        json=[{
+            "itemType": "attachment",
+            "parentItem": parent_key,
+            "linkMode": "linked_file",
+            "title": filename,
+            "contentType": "application/pdf",
+            "path": local_path,
+            "tags": [],
+            "relations": {},
+        }],
+    )
+    result = resp.json()
+    successful = result.get("successful", {})
+    if "0" in successful:
+        key = successful["0"]["key"]
+        log.info("Created linked attachment %s → %s", key, local_path)
+        return key
+    log.warning("Failed to create linked attachment: %s", result.get("failed"))
+    return None
+
+
 # -- Convenience: extract metadata --
 
 
