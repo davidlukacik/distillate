@@ -186,7 +186,7 @@ authors:
 {authors_yaml}
 date_added: {date_added[:10]}
 date_read: {today}
-zotero: "zotero://select/items/{zotero_item_key}"{optional}{pdf_yaml}
+zotero: "zotero://select/library/items/{zotero_item_key}"{optional}{pdf_yaml}
 tags:
 {tags_yaml}
 ---
@@ -252,7 +252,7 @@ authors:
 {authors_yaml}
 date_added: {date_added[:10]}
 date_skimmed: {today}
-zotero: "zotero://select/items/{zotero_item_key}"{optional}{pdf_yaml}
+zotero: "zotero://select/library/items/{zotero_item_key}"{optional}{pdf_yaml}
 tags:
 {tags_yaml}
 ---
