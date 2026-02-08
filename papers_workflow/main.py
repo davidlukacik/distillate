@@ -81,12 +81,14 @@ def _reprocess(args: list[str]) -> None:
 
             # Update linked attachment to point to annotated PDF
             linked = zotero_client.get_linked_attachment(item_key)
-            if linked:
-                zotero_client.delete_attachment(linked["key"])
             if saved:
-                zotero_client.create_linked_attachment(
+                new_att = zotero_client.create_linked_attachment(
                     item_key, saved.name, str(saved),
                 )
+                if new_att and linked:
+                    zotero_client.delete_attachment(linked["key"])
+            elif linked:
+                zotero_client.delete_attachment(linked["key"])
 
             # Recreate Obsidian note (delete existing first)
             obsidian.ensure_reading_logs()
@@ -154,11 +156,16 @@ def main():
                         pdf_bytes, config.RM_FOLDER_TO_READ, title
                     )
                     saved = obsidian.save_to_read_pdf(title, pdf_bytes)
-                    zotero_client.delete_attachment(att_key)
                     if saved:
-                        zotero_client.create_linked_attachment(
+                        new_att = zotero_client.create_linked_attachment(
                             item_key, saved.name, str(saved),
                         )
+                        if new_att:
+                            zotero_client.delete_attachment(att_key)
+                        else:
+                            log.warning("Could not create linked attachment for '%s', keeping imported PDF", title)
+                    else:
+                        zotero_client.delete_attachment(att_key)
                     zotero_client.add_tag(item_key, config.ZOTERO_TAG_TO_READ)
                     state.set_status(item_key, "on_remarkable")
                     sent_count += 1
@@ -266,13 +273,17 @@ def main():
                                 )
                                 # Save original to Obsidian To Read folder
                                 saved = obsidian.save_to_read_pdf(title, pdf_bytes)
-                                # Delete from Zotero to free storage
-                                zotero_client.delete_attachment(att_key)
-                                # Create linked attachment to local PDF
+                                # Create linked attachment, then delete imported
                                 if saved:
-                                    zotero_client.create_linked_attachment(
+                                    new_att = zotero_client.create_linked_attachment(
                                         item_key, saved.name, str(saved),
                                     )
+                                    if new_att:
+                                        zotero_client.delete_attachment(att_key)
+                                    else:
+                                        log.warning("Could not create linked attachment for '%s', keeping imported PDF", title)
+                                else:
+                                    zotero_client.delete_attachment(att_key)
 
                             # Tag in Zotero
                             zotero_client.add_tag(item_key, config.ZOTERO_TAG_TO_READ)
@@ -360,12 +371,14 @@ def main():
 
                 # Update linked attachment to point to annotated PDF
                 linked = zotero_client.get_linked_attachment(item_key)
-                if linked:
-                    zotero_client.delete_attachment(linked["key"])
                 if saved:
-                    zotero_client.create_linked_attachment(
+                    new_att = zotero_client.create_linked_attachment(
                         item_key, saved.name, str(saved),
                     )
+                    if new_att and linked:
+                        zotero_client.delete_attachment(linked["key"])
+                elif linked:
+                    zotero_client.delete_attachment(linked["key"])
 
             # Update Zotero tag
             zotero_client.replace_tag(
