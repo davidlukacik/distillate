@@ -271,6 +271,31 @@ def _extract_highlights_by_page(
     return result
 
 
+def _join_dedup(parts: List[str]) -> str:
+    """Join text parts, removing overlapping words at boundaries.
+
+    When two GlyphRange items overlap (e.g. one ends with 'species' and the
+    next starts with 'species or'), the duplicate words are removed.
+    """
+    if not parts:
+        return ""
+    result = parts[0]
+    for part in parts[1:]:
+        result_words = result.split()
+        part_words = part.split()
+        # Check for 1-3 word overlap at boundary
+        overlap = 0
+        for n in range(min(3, len(result_words), len(part_words)), 0, -1):
+            if result_words[-n:] == part_words[:n]:
+                overlap = n
+                break
+        if overlap:
+            result += " " + " ".join(part_words[overlap:])
+        else:
+            result += " " + part
+    return result
+
+
 def _extract_raw_glyphs(
     rm_data: bytes,
 ) -> List[Tuple[str, float | None, int]]:
@@ -293,16 +318,24 @@ def _extract_raw_glyphs(
 def _merge_glyphs(
     raw_glyphs: List[Tuple[str, float | None, int]],
 ) -> List[str]:
-    """Merge consecutive GlyphRange items on adjacent lines into passages."""
+    """Merge consecutive GlyphRange items on adjacent lines into passages.
+
+    Sorts glyphs by y-coordinate first so that items from different columns
+    (which have distinct y-ranges) are grouped correctly instead of
+    being interleaved.
+    """
     if not raw_glyphs:
         return []
 
-    passages: List[str] = []
-    current_parts: List[str] = [raw_glyphs[0][0]]
-    prev_y = raw_glyphs[0][1]
-    prev_color = raw_glyphs[0][2]
+    # Sort by y so items from the same column are adjacent
+    sorted_glyphs = sorted(raw_glyphs, key=lambda g: g[1] if g[1] is not None else 0)
 
-    for text, y, color in raw_glyphs[1:]:
+    passages: List[str] = []
+    current_parts: List[str] = [sorted_glyphs[0][0]]
+    prev_y = sorted_glyphs[0][1]
+    prev_color = sorted_glyphs[0][2]
+
+    for text, y, color in sorted_glyphs[1:]:
         same_passage = (
             color == prev_color
             and prev_y is not None
@@ -312,10 +345,10 @@ def _merge_glyphs(
         if same_passage:
             current_parts.append(text)
         else:
-            passages.append(" ".join(current_parts))
+            passages.append(_join_dedup(current_parts))
             current_parts = [text]
         prev_y = y
         prev_color = color
 
-    passages.append(" ".join(current_parts))
+    passages.append(_join_dedup(current_parts))
     return passages
