@@ -129,6 +129,7 @@ def create_paper_note(
     url: str = "",
     publication_date: str = "",
     journal: str = "",
+    summary: str = "",
 ) -> Optional[Path]:
     """Create an Obsidian note for a read paper.
 
@@ -173,6 +174,9 @@ def create_paper_note(
     # Optional PDF embed in note body
     pdf_embed = f"![[{pdf_filename}]]\n\n" if pdf_filename else ""
 
+    # AI summary at top of note
+    summary_md = f"{summary}\n\n" if summary else ""
+
     # Optional abstract section
     if abstract:
         abstract_md = f"## Abstract\n\n> {abstract}\n\n"
@@ -193,12 +197,9 @@ tags:
 
 # {title}
 
-{pdf_embed}{abstract_md}## Highlights
+{summary_md}{pdf_embed}{abstract_md}## Highlights
 
 {highlights_md}
-
-## Notes
-
 """
     note_path.write_text(content)
     log.info("Created Obsidian note: %s", note_path)
@@ -262,9 +263,6 @@ tags:
 {pdf_embed}## Quick Takeaways
 
 -
-
-## Notes
-
 """
     note_path.write_text(content)
     log.info("Created skimmed note: %s", note_path)
@@ -275,11 +273,10 @@ def append_to_reading_log(
     title: str,
     status: str,
     summary: str,
-    authors: Optional[List[str]] = None,
 ) -> None:
     """Append a paper entry to the Reading Log note.
 
-    Creates the note with a header if it doesn't exist yet.
+    Groups entries by date as bullet points. Creates the note if needed.
     Status should be "Read" or "Skimmed".
     """
     d = _papers_dir()
@@ -288,30 +285,29 @@ def append_to_reading_log(
 
     log_path = d / "Reading Log.md"
     today = date.today().isoformat()
+    today_header = f"## {today}"
 
     if not log_path.exists():
         log_path.write_text("# Reading Log\n\n")
         log.info("Created Reading Log: %s", log_path)
 
-    sanitized = _sanitize_note_name(title)
-    authors_str = ", ".join(authors[:3]) if authors else "Unknown"
-    if authors and len(authors) > 3:
-        authors_str += " et al."
-
-    entry = (
-        f"### [[{sanitized}|{title}]]\n"
-        f"**{status}** on {today} — {authors_str}\n\n"
-        f"{summary}\n\n---\n\n"
-    )
-
-    # Append after the header line
     existing = log_path.read_text()
-    # Insert new entry right after the "# Reading Log" header
-    if "\n\n" in existing:
-        header, rest = existing.split("\n\n", 1)
-        updated = f"{header}\n\n{entry}{rest}"
+    sanitized = _sanitize_note_name(title)
+    bullet = f"- **{status}**: [[{sanitized}|{title}]] — {summary}"
+
+    if today_header in existing:
+        # Add bullet under existing date header
+        updated = existing.replace(
+            today_header, f"{today_header}\n{bullet}", 1,
+        )
     else:
-        updated = f"{existing}\n\n{entry}"
+        # Insert new date header after "# Reading Log"
+        header_end = existing.index("\n\n") + 2 if "\n\n" in existing else len(existing)
+        updated = (
+            existing[:header_end]
+            + f"{today_header}\n{bullet}\n\n"
+            + existing[header_end:]
+        )
 
     log_path.write_text(updated)
     log.info("Appended to Reading Log: %s (%s)", title, status)

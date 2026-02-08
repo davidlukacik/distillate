@@ -98,6 +98,11 @@ def _reprocess(args: list[str]) -> None:
                 if items:
                     meta = zotero_client.extract_metadata(items[0])
 
+            # Generate AI summaries
+            note_summary, log_sentence = summarizer.summarize_read_paper(
+                title, abstract=meta.get("abstract", ""), highlights=highlights,
+            )
+
             # Recreate Obsidian note (delete existing first)
             obsidian.ensure_dataview_note()
             obsidian.delete_paper_note(title)
@@ -113,6 +118,7 @@ def _reprocess(args: list[str]) -> None:
                 url=meta.get("url", ""),
                 publication_date=meta.get("publication_date", ""),
                 journal=meta.get("journal", ""),
+                summary=note_summary,
             )
 
             # Add Obsidian deep link in Zotero
@@ -121,12 +127,7 @@ def _reprocess(args: list[str]) -> None:
                 zotero_client.create_obsidian_link(item_key, obsidian_uri)
 
             # Update reading log
-            summary = summarizer.summarize_read_paper(
-                title, abstract=meta.get("abstract", ""), highlights=highlights,
-            )
-            obsidian.append_to_reading_log(
-                title, "Read", summary, authors=doc["authors"],
-            )
+            obsidian.append_to_reading_log(title, "Read", log_sentence)
 
             log.info("Reprocessed: %s", title)
 
@@ -416,8 +417,15 @@ def main():
                     item_key, config.ZOTERO_TAG_TO_READ, config.ZOTERO_TAG_READ,
                 )
 
-                # Create Obsidian note with extracted highlights
+                # Generate AI summaries
                 meta = doc.get("metadata", {})
+                note_summary, log_sentence = summarizer.summarize_read_paper(
+                    doc["title"],
+                    abstract=meta.get("abstract", ""),
+                    highlights=highlights,
+                )
+
+                # Create Obsidian note with extracted highlights
                 obsidian.ensure_dataview_note()
                 obsidian.create_paper_note(
                     title=doc["title"],
@@ -431,6 +439,7 @@ def main():
                     url=meta.get("url", ""),
                     publication_date=meta.get("publication_date", ""),
                     journal=meta.get("journal", ""),
+                    summary=note_summary,
                 )
 
                 # Add Obsidian deep link in Zotero
@@ -438,15 +447,8 @@ def main():
                 if obsidian_uri:
                     zotero_client.create_obsidian_link(item_key, obsidian_uri)
 
-                # Append to reading log with AI summary
-                read_summary = summarizer.summarize_read_paper(
-                    doc["title"],
-                    abstract=meta.get("abstract", ""),
-                    highlights=highlights,
-                )
-                obsidian.append_to_reading_log(
-                    doc["title"], "Read", read_summary, authors=doc["authors"],
-                )
+                # Append to reading log
+                obsidian.append_to_reading_log(doc["title"], "Read", log_sentence)
 
                 # Move to Archive on reMarkable
                 remarkable_client.move_document(
@@ -510,12 +512,12 @@ def main():
                 if obsidian_uri:
                     zotero_client.create_obsidian_link(item_key, obsidian_uri)
 
-                # Append to reading log with AI summary
+                # Append to reading log
                 skimmed_summary = summarizer.summarize_skimmed_paper(
                     doc["title"], abstract=meta.get("abstract", ""),
                 )
                 obsidian.append_to_reading_log(
-                    doc["title"], "Skimmed", skimmed_summary, authors=doc["authors"],
+                    doc["title"], "Skimmed", skimmed_summary,
                 )
 
                 # Move to Archive on reMarkable
