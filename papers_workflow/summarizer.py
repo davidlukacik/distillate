@@ -37,13 +37,12 @@ def summarize_read_paper(
         f"You are summarizing a research paper for a personal reading log.\n\n"
         f"Paper: {title}\n\n{context}\n\n"
         f"Provide two summaries, separated by the exact line '---':\n"
-        f"1. A paragraph (3-4 sentences) for the top of my note. Describe what "
-        f"the paper found or proposes, with specific methods, results, or numbers "
-        f"where possible. No filler like 'this paper explores' — jump straight "
-        f"into the substance. Write in third person.\n"
-        f"2. One or two short sentences I'd use to tell a friend what the paper "
-        f"is about. Be concrete and specific — mention the actual finding or "
-        f"proposal, not just the topic. Three very short sentences at most.\n\n"
+        f"1. A paragraph (3-4 sentences) for the top of my note. State the key "
+        f"idea directly as fact — never start with 'this paper' or 'the authors'. "
+        f"Include specific methods, results, or numbers where possible.\n"
+        f"2. The core idea in one sentence (two short ones max). Focus on the single "
+        f"most important takeaway — don't rephrase it a second way. Never start "
+        f"with 'the paper' or 'this study'. Just state the idea directly.\n\n"
         f"Format:\n[paragraph]\n---\n[sentences]"
     )
 
@@ -77,9 +76,9 @@ def summarize_skimmed_paper(
         return f"Skimmed *{title}*."
 
     prompt = (
-        f"Write one or two short sentences summarizing this research paper — "
-        f"what it found or proposes, concretely. No filler like 'this paper "
-        f"explores'.\n\n"
+        f"Write one or two short sentences stating the core idea of this paper. "
+        f"Never start with 'this paper' or 'the authors' — just state the idea "
+        f"directly. Focus on the single most important takeaway.\n\n"
         f"Paper: {title}\n\nAbstract: {abstract}"
     )
 
