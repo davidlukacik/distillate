@@ -1,6 +1,8 @@
 .env
 state.json
+state.lock
 *.pdf
+.claude/
 
 # Python
 __pycache__/
