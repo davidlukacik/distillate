@@ -99,10 +99,13 @@ def _reprocess(args: list[str]) -> None:
                     meta = zotero_client.extract_metadata(items[0])
                     doc["metadata"] = meta
 
-            # Generate AI summaries
-            note_summary, log_sentence = summarizer.summarize_read_paper(
-                title, abstract=meta.get("abstract", ""), highlights=highlights,
-            )
+            # Reuse stored summaries, only call API if missing
+            log_sentence = doc.get("summary", "")
+            note_summary = doc.get("note_summary", "")
+            if not log_sentence or not note_summary:
+                note_summary, log_sentence = summarizer.summarize_read_paper(
+                    title, abstract=meta.get("abstract", ""), highlights=highlights,
+                )
 
             # Recreate Obsidian note (delete existing first)
             obsidian.ensure_dataview_note()
@@ -137,8 +140,10 @@ def _reprocess(args: list[str]) -> None:
             # Update reading log
             obsidian.append_to_reading_log(title, "Read", log_sentence)
 
-            # Save summary to state
-            state.mark_processed(item_key, summary=log_sentence)
+            # Save summaries to state
+            state.mark_processed(
+                item_key, summary=log_sentence, note_summary=note_summary,
+            )
             state.save()
 
             log.info("Reprocessed: %s", title)
@@ -568,7 +573,9 @@ def main():
                 )
 
                 # Update state
-                state.mark_processed(item_key, summary=log_sentence)
+                state.mark_processed(
+                    item_key, summary=log_sentence, note_summary=note_summary,
+                )
                 state.save()
                 synced_count += 1
                 log.info("Processed: %s", rm_name)
