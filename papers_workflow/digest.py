@@ -51,8 +51,7 @@ def send_weekly_digest(days: int = 7) -> None:
 
 
 def _build_subject():
-    year, week, _ = datetime.now().isocalendar()
-    return f"Reading log - {year}-W{week:02d}"
+    return datetime.now().strftime("Reading digest \u2013 %b %-d, %Y")
 
 
 def _paper_url(p):
