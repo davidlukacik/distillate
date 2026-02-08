@@ -47,6 +47,7 @@ def ensure_folders() -> None:
     for folder in (
         config.RM_FOLDER_TO_READ,
         config.RM_FOLDER_READ,
+        config.RM_FOLDER_SKIMMED,
         config.RM_FOLDER_ARCHIVE,
     ):
         if folder not in existing:
@@ -55,8 +56,13 @@ def ensure_folders() -> None:
 
 
 def list_folder(folder: str) -> List[str]:
-    """List document names in a reMarkable folder."""
-    result = _run(["ls", f"/{folder}"])
+    """List document names in a reMarkable folder.
+
+    Returns an empty list if the folder doesn't exist.
+    """
+    result = _run(["ls", f"/{folder}"], check=False)
+    if result.returncode != 0:
+        return []
     names = []
     for line in result.stdout.splitlines():
         if line.startswith("[f]"):

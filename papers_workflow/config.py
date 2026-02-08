@@ -47,9 +47,11 @@ REMARKABLE_DEVICE_TOKEN: str = os.environ.get("REMARKABLE_DEVICE_TOKEN", "").str
 RM_FOLDER_TO_READ: str = os.environ.get("RM_FOLDER_TO_READ", "To Read").strip()
 RM_FOLDER_READ: str = os.environ.get("RM_FOLDER_READ", "Read").strip()
 RM_FOLDER_ARCHIVE: str = os.environ.get("RM_FOLDER_ARCHIVE", "Archive").strip()
+RM_FOLDER_SKIMMED: str = os.environ.get("RM_FOLDER_SKIMMED", "Skimmed").strip()
 
 ZOTERO_TAG_TO_READ: str = os.environ.get("ZOTERO_TAG_TO_READ", "to-read").strip()
 ZOTERO_TAG_READ: str = os.environ.get("ZOTERO_TAG_READ", "read").strip()
+ZOTERO_TAG_SKIMMED: str = os.environ.get("ZOTERO_TAG_SKIMMED", "skimmed").strip()
 
 OBSIDIAN_VAULT_PATH: str = os.environ.get("OBSIDIAN_VAULT_PATH", "").strip()
 OBSIDIAN_PAPERS_FOLDER: str = os.environ.get("OBSIDIAN_PAPERS_FOLDER", "Papers").strip()

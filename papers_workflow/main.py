@@ -432,6 +432,63 @@ def main():
                 log.exception("Failed to process read paper '%s', skipping", rm_name)
                 continue
 
+        # -- Step 2b: Poll reMarkable for skimmed papers --
+        log.info("Step 2b: Checking reMarkable for skimmed papers...")
+
+        skimmed_docs = remarkable_client.list_folder(config.RM_FOLDER_SKIMMED)
+
+        for doc in on_remarkable:
+            rm_name = doc["remarkable_doc_name"]
+
+            if rm_name not in skimmed_docs:
+                continue
+
+            log.info("Found skimmed paper: %s", rm_name)
+            item_key = doc["zotero_item_key"]
+
+            try:
+                # Clean up original from To Read folder
+                obsidian.delete_to_read_pdf(doc["title"])
+
+                # Update linked attachment (keep existing if no new PDF)
+                linked = zotero_client.get_linked_attachment(item_key)
+                if linked:
+                    zotero_client.delete_attachment(linked["key"])
+
+                # Update Zotero tag
+                zotero_client.replace_tag(
+                    item_key, config.ZOTERO_TAG_TO_READ, config.ZOTERO_TAG_SKIMMED,
+                )
+
+                # Create minimal Obsidian note
+                meta = doc.get("metadata", {})
+                obsidian.ensure_dataview_note()
+                obsidian.create_skimmed_note(
+                    title=doc["title"],
+                    authors=doc["authors"],
+                    date_added=doc["uploaded_at"],
+                    zotero_item_key=item_key,
+                    doi=meta.get("doi", ""),
+                    url=meta.get("url", ""),
+                    publication_date=meta.get("publication_date", ""),
+                    journal=meta.get("journal", ""),
+                )
+
+                # Move to Archive on reMarkable
+                remarkable_client.move_document(
+                    rm_name, config.RM_FOLDER_SKIMMED, config.RM_FOLDER_ARCHIVE,
+                )
+
+                # Update state
+                state.mark_processed(item_key)
+                state.save()
+                synced_count += 1
+                log.info("Processed (skimmed): %s", rm_name)
+
+            except Exception:
+                log.exception("Failed to process skimmed paper '%s', skipping", rm_name)
+                continue
+
         state.touch_poll_timestamp()
         state.save()
 

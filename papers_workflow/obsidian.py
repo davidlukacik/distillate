@@ -17,10 +17,10 @@ _DATAVIEW_TEMPLATE = """\
 # Papers List
 
 ```dataview
-TABLE date_added as "Added", date_read as "Read", join(authors, ", ") as "Authors"
+TABLE date_added as "Added", choice(date_read, date_read, date_skimmed) as "Completed", join(authors, ", ") as "Authors", choice(contains(tags, "skimmed"), "Skimmed", "Read") as "Status"
 FROM "{folder}"
-WHERE tags AND contains(tags, "read")
-SORT date_read DESC
+WHERE tags AND (contains(tags, "read") OR contains(tags, "skimmed"))
+SORT choice(date_read, date_read, date_skimmed) DESC
 ```
 """
 
@@ -203,6 +203,71 @@ tags:
     log.info("Created Obsidian note: %s", note_path)
     return note_path
 
+
+def create_skimmed_note(
+    title: str,
+    authors: List[str],
+    date_added: str,
+    zotero_item_key: str,
+    pdf_filename: Optional[str] = None,
+    doi: str = "",
+    url: str = "",
+    publication_date: str = "",
+    journal: str = "",
+) -> Optional[Path]:
+    """Create a minimal Obsidian note for a skimmed paper."""
+    d = _papers_dir()
+    if d is None:
+        return None
+
+    sanitized = _sanitize_note_name(title)
+    note_path = d / f"{sanitized}.md"
+
+    if note_path.exists():
+        log.warning("Note already exists, skipping: %s", note_path)
+        return None
+
+    today = date.today().isoformat()
+
+    authors_yaml = "\n".join(f"  - {a}" for a in authors) if authors else "  - Unknown"
+    tags_yaml = "\n".join(f"  - {t}" for t in ["paper", "skimmed"])
+
+    optional = ""
+    if doi:
+        optional += f'\ndoi: "{_escape_yaml(doi)}"'
+    if journal:
+        optional += f'\njournal: "{_escape_yaml(journal)}"'
+    if publication_date:
+        optional += f'\npublication_date: "{publication_date}"'
+    if url:
+        optional += f'\nurl: "{_escape_yaml(url)}"'
+    pdf_yaml = f'\npdf: "[[{pdf_filename}]]"' if pdf_filename else ""
+    pdf_embed = f"![[{pdf_filename}]]\n\n" if pdf_filename else ""
+
+    content = f"""\
+---
+title: "{_escape_yaml(title)}"
+authors:
+{authors_yaml}
+date_added: {date_added[:10]}
+date_skimmed: {today}
+zotero: "zotero://select/items/{zotero_item_key}"{optional}{pdf_yaml}
+tags:
+{tags_yaml}
+---
+
+# {title}
+
+{pdf_embed}## Quick Takeaways
+
+-
+
+## Notes
+
+"""
+    note_path.write_text(content)
+    log.info("Created skimmed note: %s", note_path)
+    return note_path
 
 
 def _sanitize_note_name(name: str) -> str:
