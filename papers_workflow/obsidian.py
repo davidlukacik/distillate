@@ -276,7 +276,7 @@ def append_to_reading_log(
 ) -> None:
     """Append a paper entry to the Reading Log note.
 
-    Groups entries by date as bullet points. Creates the note if needed.
+    Flat bullet list, newest first. Creates the note if needed.
     Status should be "Read" or "Skimmed".
     """
     d = _papers_dir()
@@ -285,7 +285,6 @@ def append_to_reading_log(
 
     log_path = d / "Reading Log.md"
     today = date.today().isoformat()
-    today_header = f"## {today}"
 
     if not log_path.exists():
         log_path.write_text("# Reading Log\n\n")
@@ -293,21 +292,11 @@ def append_to_reading_log(
 
     existing = log_path.read_text()
     sanitized = _sanitize_note_name(title)
-    bullet = f"- **{status}**: [[{sanitized}|{title}]] — {summary}"
+    bullet = f"- {today} — **{status}**: [[{sanitized}|{title}]] — {summary}\n"
 
-    if today_header in existing:
-        # Add bullet under existing date header
-        updated = existing.replace(
-            today_header, f"{today_header}\n{bullet}", 1,
-        )
-    else:
-        # Insert new date header after "# Reading Log"
-        header_end = existing.index("\n\n") + 2 if "\n\n" in existing else len(existing)
-        updated = (
-            existing[:header_end]
-            + f"{today_header}\n{bullet}\n\n"
-            + existing[header_end:]
-        )
+    # Insert right after the "# Reading Log" header
+    header_end = existing.index("\n\n") + 2 if "\n\n" in existing else len(existing)
+    updated = existing[:header_end] + bullet + existing[header_end:]
 
     log_path.write_text(updated)
     log.info("Appended to Reading Log: %s (%s)", title, status)
