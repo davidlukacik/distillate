@@ -3,40 +3,19 @@
 ## Done
 
 - ~~Smart storage~~ — PDFs deleted from Zotero immediately after upload to reMarkable. Originals kept in Obsidian `Papers/To Read/`, annotated copies in `Papers/`. Zotero free tier is sustainable.
-
-## Tier 1 — Next up
-
-### 1. Re-process command
-`papers-workflow --reprocess "Paper Title"` to re-run highlight extraction + PDF rendering on an already-processed paper. Useful after adding more highlights on a second read, or when rendering settings change.
-
-### 2. GitHub Actions scheduling
-Run the workflow in the cloud on a cron (works when laptop is closed):
-- Secrets: Zotero API key, reMarkable device token, Claude API key
-- Persist `state.json` across runs (commit to repo or use artifacts)
-- Push Obsidian notes to vault repo (if git-backed) or skip Obsidian in cloud mode
-- Trigger weekly email from a separate scheduled workflow
-
-### 3. Richer Obsidian notes
-Pull abstract, DOI, journal/venue, and URL from Zotero metadata. Add to YAML frontmatter and note body. Foundation for Dataview queries and Claude summarization.
-
-### 4. Claude paper summarization
-After extracting highlights, call Claude API to generate:
-- One-paragraph summary (under `## Summary` in the note)
-- Auto-suggested topic tags (`protein-engineering`, `single-cell`, `ML-methods`, etc.)
-- One-sentence elevator pitch (stored in frontmatter for the weekly digest)
-
-### 5. Weekly email digest
-Every Sunday, compile papers read that week into a formatted email:
-- One-sentence Claude summary per paper
-- Link to Zotero item and Obsidian note
-- Total highlights count
-- Use Resend, SendGrid, or simple SMTP
-- Doubles as a shareable "what I read this week" newsletter
+- ~~Re-process command~~ — `papers-workflow --reprocess "Paper Title"` re-runs highlight extraction + PDF rendering. Reuses cached AI summaries.
+- ~~Richer Obsidian notes~~ — DOI, abstract, journal, publication date, URL in YAML frontmatter and note body.
+- ~~Claude paper summarization~~ — AI-generated 1-2 sentence takeaway (blockquote) + paragraph summary at top of note. Cached in state to avoid redundant API calls.
+- ~~Weekly email digest~~ — `--digest` sends plain HTML email via Resend with read/skimmed papers, summaries, and direct URLs.
+- ~~Zotero notes sync~~ — Summary + highlights pushed to Zotero child note, searchable and visible on mobile.
+- ~~Dry run mode~~ — `--dry-run` previews what would happen without making any changes.
+- ~~Read vs Skimmed triage~~ — Papers in `/Skimmed` on reMarkable get minimal notes, different Zotero tag, shorter summaries.
+- ~~Obsidian deep links~~ — "Open in Obsidian" linked_url attachment in Zotero (desktop).
+- ~~Safety improvements~~ — Stale lock detection, create-then-delete ordering, try-except per document, per-paper state saves.
+- ~~Two-column highlight fix~~ — GlyphRange items sorted by y-coordinate before merging, with word deduplication at boundaries.
+- ~~AI reading log~~ — Flat bullet list in `Reading Log.md` with inline dates and one-sentence summaries.
 
 ## Tier 2 — High value, moderate effort
-
-### 6. Zotero notes sync
-Push the Claude summary + highlights back to the Zotero item's note field. Makes the summary searchable in Zotero and visible on mobile.
 
 ### 7. Smart highlight categories
 Use Claude to classify each highlight as "key finding", "method", "limitation", "future work", "background". Group them in the Obsidian note under labeled sections instead of a flat list.
@@ -67,8 +46,8 @@ Papers per week/month, highlights per paper, topic distribution, reading streaks
 ### 15. Handwritten margin notes
 Extract pen strokes from `.rm` files, render as images, embed in Obsidian note alongside text highlights.
 
-### 16. Dry run mode
-`papers-workflow --dry-run` to preview what would happen without making any changes.
+### 16. GitHub Actions scheduling
+Run the workflow in the cloud on a cron (works when laptop is closed). Out of scope for now.
 
 ### 17. Log rotation + better notifications
 Rotate log files, richer macOS notifications (paper titles), optional Slack/Discord webhooks.
