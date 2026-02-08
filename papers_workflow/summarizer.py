@@ -37,9 +37,13 @@ def summarize_read_paper(
         f"You are summarizing a research paper for a personal reading log.\n\n"
         f"Paper: {title}\n\n{context}\n\n"
         f"Provide two summaries, separated by the exact line '---':\n"
-        f"1. A paragraph (3-4 sentences) summarizing the key contributions and "
-        f"findings. Be specific about results, not vague. Write in third person.\n"
-        f"2. A single sentence capturing the main takeaway.\n\n"
+        f"1. A paragraph (3-4 sentences) for the top of my note. Describe what "
+        f"the paper found or proposes, with specific methods, results, or numbers "
+        f"where possible. No filler like 'this paper explores' — jump straight "
+        f"into the substance. Write in third person.\n"
+        f"2. One sentence I'd use to tell a friend what the paper is about. "
+        f"Be concrete and specific — mention the actual finding or proposal, "
+        f"not just the topic.\n\n"
         f"Format:\n[paragraph]\n---\n[sentence]"
     )
 
@@ -73,9 +77,8 @@ def summarize_skimmed_paper(
         return f"Skimmed *{title}*."
 
     prompt = (
-        f"You are summarizing a research paper for a personal reading log. "
-        f"Write exactly one short sentence summarizing what this paper is about. "
-        f"Be specific, not vague.\n\n"
+        f"Write one sentence summarizing this research paper — what it found "
+        f"or proposes, concretely. No filler like 'this paper explores'.\n\n"
         f"Paper: {title}\n\nAbstract: {abstract}"
     )
 
