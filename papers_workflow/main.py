@@ -97,6 +97,7 @@ def _reprocess(args: list[str]) -> None:
                 items = zotero_client.get_items_by_keys([item_key])
                 if items:
                     meta = zotero_client.extract_metadata(items[0])
+                    doc["metadata"] = meta
 
             # Generate AI summaries
             note_summary, log_sentence = summarizer.summarize_read_paper(

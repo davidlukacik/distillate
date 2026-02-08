@@ -45,7 +45,7 @@ def send_weekly_digest(days: int = 7) -> None:
         "from": config.DIGEST_FROM,
         "to": [config.DIGEST_TO],
         "subject": subject,
-        "html": body,
+        "text": body,
     })
     log.info("Sent weekly digest to %s: %s", config.DIGEST_TO, result)
 
@@ -55,53 +55,44 @@ def _build_subject():
     return f"Reading log - {year}-W{week:02d}"
 
 
-def _paper_link(p):
-    """Return an HTML link to the paper (DOI or URL), or just the title."""
+def _paper_url(p):
+    """Return a URL to the paper (DOI or URL), or empty string."""
     meta = p.get("metadata", {})
     doi = meta.get("doi", "")
     url = meta.get("url", "")
     if doi:
-        return f'https://doi.org/{doi}'
+        return f"https://doi.org/{doi}"
     if url:
         return url
     return ""
 
 
-def _paper_html(p):
+def _paper_line(p):
     title = p.get("title", "Untitled")
     summary = p.get("summary", "")
-    link = _paper_link(p)
+    url = _paper_url(p)
 
-    summary_html = f" — {summary}" if summary else ""
-    link_html = f' (<a href="{link}">link</a>)' if link else ""
-
-    return (
-        f"<li style='margin-bottom: 8px;'>"
-        f"<strong>{title}</strong>{summary_html}{link_html}"
-        f"</li>"
-    )
+    line = f"- {title}"
+    if summary:
+        line += f" — {summary}"
+    if url:
+        line += f"\n  {url}"
+    return line
 
 
 def _build_body(read, skimmed):
-    lines = [
-        "<html><body style='font-family: sans-serif; max-width: 600px; "
-        "margin: 0 auto; padding: 20px; color: #333;'>",
-    ]
+    lines = []
 
     if read:
-        lines.append("<p>Papers I read this week:</p>")
-        lines.append("<ul style='padding-left: 20px;'>")
+        lines.append("Papers I read this week:\n")
         for p in read:
-            lines.append(_paper_html(p))
-        lines.append("</ul>")
+            lines.append(_paper_line(p))
+        lines.append("")
 
     if skimmed:
-        lines.append("<p>I also saw the following papers:</p>")
-        lines.append("<ul style='padding-left: 20px;'>")
+        lines.append("I also saw the following papers:\n")
         for p in skimmed:
-            lines.append(_paper_html(p))
-        lines.append("</ul>")
+            lines.append(_paper_line(p))
+        lines.append("")
 
-    lines.append("<p style='color: #999; font-size: 11px;'>Sent by papers-workflow</p>")
-    lines.append("</body></html>")
     return "\n".join(lines)
