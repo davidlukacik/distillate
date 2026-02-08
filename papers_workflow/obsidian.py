@@ -8,6 +8,7 @@ import logging
 from datetime import date
 from pathlib import Path
 from typing import List, Optional
+from urllib.parse import quote
 
 from papers_workflow import config
 
@@ -268,6 +269,19 @@ tags:
     note_path.write_text(content)
     log.info("Created skimmed note: %s", note_path)
     return note_path
+
+
+def get_obsidian_uri(title: str) -> Optional[str]:
+    """Return an obsidian:// URI that opens the paper note in the vault.
+
+    Returns None if vault name is not configured.
+    """
+    if not config.OBSIDIAN_VAULT_NAME:
+        return None
+
+    sanitized = _sanitize_note_name(title)
+    file_path = f"{config.OBSIDIAN_PAPERS_FOLDER}/{sanitized}"
+    return f"obsidian://open?vault={quote(config.OBSIDIAN_VAULT_NAME)}&file={quote(file_path)}"
 
 
 def _sanitize_note_name(name: str) -> str:

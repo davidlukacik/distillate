@@ -113,6 +113,12 @@ def _reprocess(args: list[str]) -> None:
                 publication_date=meta.get("publication_date", ""),
                 journal=meta.get("journal", ""),
             )
+
+            # Add Obsidian deep link in Zotero
+            obsidian_uri = obsidian.get_obsidian_uri(title)
+            if obsidian_uri:
+                zotero_client.create_obsidian_link(item_key, obsidian_uri)
+
             log.info("Reprocessed: %s", title)
 
 
@@ -417,6 +423,11 @@ def main():
                     journal=meta.get("journal", ""),
                 )
 
+                # Add Obsidian deep link in Zotero
+                obsidian_uri = obsidian.get_obsidian_uri(doc["title"])
+                if obsidian_uri:
+                    zotero_client.create_obsidian_link(item_key, obsidian_uri)
+
                 # Move to Archive on reMarkable
                 remarkable_client.move_document(
                     rm_name, config.RM_FOLDER_READ, config.RM_FOLDER_ARCHIVE,
@@ -473,6 +484,11 @@ def main():
                     publication_date=meta.get("publication_date", ""),
                     journal=meta.get("journal", ""),
                 )
+
+                # Add Obsidian deep link in Zotero
+                obsidian_uri = obsidian.get_obsidian_uri(doc["title"])
+                if obsidian_uri:
+                    zotero_client.create_obsidian_link(item_key, obsidian_uri)
 
                 # Move to Archive on reMarkable
                 remarkable_client.move_document(

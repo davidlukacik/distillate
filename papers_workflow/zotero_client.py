@@ -248,6 +248,46 @@ def create_linked_attachment(
     return None
 
 
+def create_obsidian_link(parent_key: str, obsidian_uri: str) -> Optional[str]:
+    """Create a linked_url attachment with an obsidian:// URI.
+
+    Checks for an existing "Open in Obsidian" attachment first to avoid
+    duplicates. Returns the attachment key on success, None on failure.
+    """
+    # Check for existing Obsidian link
+    resp = _get(f"/items/{parent_key}/children")
+    for child in resp.json():
+        data = child.get("data", {})
+        if (
+            data.get("itemType") == "attachment"
+            and data.get("linkMode") == "linked_url"
+            and data.get("title") == "Open in Obsidian"
+        ):
+            log.info("Obsidian link already exists for %s, skipping", parent_key)
+            return child["key"]
+
+    resp = _post(
+        "/items",
+        json=[{
+            "itemType": "attachment",
+            "parentItem": parent_key,
+            "linkMode": "linked_url",
+            "title": "Open in Obsidian",
+            "url": obsidian_uri,
+            "tags": [],
+            "relations": {},
+        }],
+    )
+    result = resp.json()
+    successful = result.get("successful", {})
+    if "0" in successful:
+        key = successful["0"]["key"]
+        log.info("Created Obsidian link %s for %s", key, parent_key)
+        return key
+    log.warning("Failed to create Obsidian link: %s", result.get("failed"))
+    return None
+
+
 # -- Convenience: extract metadata --
 
 
