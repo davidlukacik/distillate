@@ -129,6 +129,10 @@ def _reprocess(args: list[str]) -> None:
             # Update reading log
             obsidian.append_to_reading_log(title, "Read", log_sentence)
 
+            # Save summary to state
+            state.mark_processed(item_key, summary=log_sentence)
+            state.save()
+
             log.info("Reprocessed: %s", title)
 
 
@@ -141,6 +145,11 @@ def main():
     if "--reprocess" in sys.argv:
         idx = sys.argv.index("--reprocess")
         _reprocess(sys.argv[idx + 1:])
+        return
+
+    if "--digest" in sys.argv:
+        from papers_workflow import digest
+        digest.send_weekly_digest()
         return
 
     from papers_workflow import config
@@ -456,7 +465,7 @@ def main():
                 )
 
                 # Update state
-                state.mark_processed(item_key)
+                state.mark_processed(item_key, summary=log_sentence)
                 state.save()
                 synced_count += 1
                 log.info("Processed: %s", rm_name)
@@ -526,7 +535,7 @@ def main():
                 )
 
                 # Update state
-                state.mark_processed(item_key)
+                state.mark_processed(item_key, summary=skimmed_summary, reading_status="skimmed")
                 state.save()
                 synced_count += 1
                 log.info("Processed (skimmed): %s", rm_name)

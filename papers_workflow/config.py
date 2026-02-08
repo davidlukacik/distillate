@@ -62,5 +62,9 @@ OBSIDIAN_VAULT_NAME: str = (
 
 ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 
+RESEND_API_KEY: str = os.environ.get("RESEND_API_KEY", "").strip()
+DIGEST_FROM: str = os.environ.get("DIGEST_FROM", "onboarding@resend.dev").strip()
+DIGEST_TO: str = os.environ.get("DIGEST_TO", "").strip()
+
 HTTP_TIMEOUT: int = int(os.environ.get("HTTP_TIMEOUT", "30"))
 LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO").strip().upper()

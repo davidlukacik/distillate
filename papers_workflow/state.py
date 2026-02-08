@@ -117,11 +117,18 @@ class State:
         if doc:
             doc["status"] = status
 
-    def mark_processed(self, zotero_item_key: str) -> None:
+    def mark_processed(
+        self, zotero_item_key: str,
+        summary: str = "",
+        reading_status: str = "read",
+    ) -> None:
         doc = self._data["documents"].get(zotero_item_key)
         if doc:
             doc["status"] = "processed"
             doc["processed_at"] = datetime.now(timezone.utc).isoformat()
+            doc["reading_status"] = reading_status
+            if summary:
+                doc["summary"] = summary
 
     def mark_deleted(self, zotero_item_key: str) -> None:
         doc = self._data["documents"].get(zotero_item_key)
@@ -134,6 +141,17 @@ class State:
             for doc in self._data["documents"].values()
             if doc["status"] == status
         ]
+
+    def documents_processed_since(self, since_iso: str) -> List[Dict[str, Any]]:
+        """Return documents processed on or after the given ISO timestamp."""
+        return sorted(
+            [
+                doc
+                for doc in self._data["documents"].values()
+                if doc["status"] == "processed" and (doc.get("processed_at") or "") >= since_iso
+            ],
+            key=lambda d: d.get("processed_at", ""),
+        )
 
 
 def _try_create_lock() -> bool:
