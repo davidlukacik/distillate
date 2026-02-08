@@ -168,6 +168,7 @@ def main():
                         zotero_client.delete_attachment(att_key)
                     zotero_client.add_tag(item_key, config.ZOTERO_TAG_TO_READ)
                     state.set_status(item_key, "on_remarkable")
+                    state.save()
                     sent_count += 1
                     log.info("Sent to reMarkable: %s", title)
                 except requests.exceptions.HTTPError as e:
@@ -297,6 +298,7 @@ def main():
                                 title=title,
                                 authors=authors,
                             )
+                            state.save()
                             sent_count += 1
                             log.info("Sent to reMarkable: %s", title)
 
@@ -403,6 +405,7 @@ def main():
 
                 # Update state
                 state.mark_processed(item_key)
+                state.save()
                 synced_count += 1
                 log.info("Processed: %s", rm_name)
 
