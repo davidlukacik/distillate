@@ -1,4 +1,4 @@
-"""Weekly email digest of papers read and skimmed."""
+"""Weekly email digest and daily paper suggestions."""
 
 import logging
 from datetime import datetime, timedelta, timezone
@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import resend
 
 from papers_workflow import config
+from papers_workflow import summarizer
 from papers_workflow.state import State
 
 log = logging.getLogger(__name__)
@@ -101,5 +102,111 @@ def _build_body(read, skimmed):
             lines.append(_paper_html(p))
         lines.append("</ul>")
 
+    lines.append("</body></html>")
+    return "\n".join(lines)
+
+
+def send_suggestion() -> None:
+    """Send a daily email suggesting 3 papers to read next."""
+    logging.basicConfig(
+        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    if not config.RESEND_API_KEY:
+        log.error("RESEND_API_KEY not set, cannot send suggestion")
+        return
+    if not config.DIGEST_TO:
+        log.error("DIGEST_TO not set, cannot send suggestion")
+        return
+
+    state = State()
+
+    # Gather unread papers (on_remarkable)
+    unread = state.documents_with_status("on_remarkable")
+    if not unread:
+        log.info("No papers in reading queue, skipping suggestion")
+        return
+
+    # Enrich with metadata fields the suggestion engine needs
+    unread_enriched = []
+    for doc in unread:
+        meta = doc.get("metadata", {})
+        unread_enriched.append({
+            "title": doc["title"],
+            "tags": meta.get("tags", []),
+            "paper_type": meta.get("paper_type", ""),
+            "uploaded_at": doc.get("uploaded_at", ""),
+        })
+
+    # Gather recent reads for context (last 30 days)
+    since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    recent = state.documents_processed_since(since)
+    recent_enriched = []
+    for doc in recent:
+        meta = doc.get("metadata", {})
+        recent_enriched.append({
+            "title": doc["title"],
+            "tags": meta.get("tags", []),
+            "summary": doc.get("summary", ""),
+            "reading_status": doc.get("reading_status", "read"),
+        })
+
+    # Ask Claude
+    result = summarizer.suggest_papers(unread_enriched, recent_enriched)
+    if not result:
+        log.warning("Could not generate suggestions")
+        return
+
+    subject = datetime.now().strftime("What to read next \u2013 %b %-d, %Y")
+    body = _build_suggestion_body(result, unread)
+
+    resend.api_key = config.RESEND_API_KEY
+    send_result = resend.Emails.send({
+        "from": config.DIGEST_FROM,
+        "to": [config.DIGEST_TO],
+        "subject": subject,
+        "html": body,
+    })
+    log.info("Sent suggestion to %s: %s", config.DIGEST_TO, send_result)
+
+
+def _build_suggestion_body(suggestion_text, unread):
+    """Build HTML body from Claude's suggestion text."""
+    # Parse numbered suggestions and add URLs
+    lines = [
+        "<html><body style='font-family: sans-serif; max-width: 600px; "
+        "margin: 0 auto; padding: 20px; color: #333;'>",
+        f"<p>You have {len(unread)} papers in your reading queue. "
+        f"Here are 3 to consider today:</p>",
+        "<ol style='padding-left: 20px;'>",
+    ]
+
+    # Build title -> URL lookup
+    url_lookup = {}
+    for doc in unread:
+        meta = doc.get("metadata", {})
+        url = meta.get("url", "")
+        doi = meta.get("doi", "")
+        if url:
+            url_lookup[doc["title"].lower()] = url
+        elif doi:
+            url_lookup[doc["title"].lower()] = f"https://doi.org/{doi}"
+
+    for line in suggestion_text.strip().split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        # Try to find and link the paper title
+        url = ""
+        for title_lower, paper_url in url_lookup.items():
+            if title_lower in line.lower():
+                url = paper_url
+                break
+        url_html = f'<br><a href="{url}">{url}</a>' if url else ""
+        lines.append(f"<li style='margin-bottom: 10px;'>{line}{url_html}</li>")
+
+    lines.append("</ol>")
     lines.append("</body></html>")
     return "\n".join(lines)

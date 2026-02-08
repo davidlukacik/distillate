@@ -304,6 +304,11 @@ def main():
         _backfill_tags()
         return
 
+    if "--suggest" in sys.argv:
+        from papers_workflow import digest
+        digest.send_suggestion()
+        return
+
     from papers_workflow import config
     from papers_workflow import zotero_client
     from papers_workflow import remarkable_client
