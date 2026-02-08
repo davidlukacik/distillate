@@ -6,11 +6,14 @@ corruption if the script is interrupted mid-write.
 """
 
 import json
+import logging
 import os
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+log = logging.getLogger(__name__)
 
 STATE_PATH = Path(__file__).resolve().parent.parent / "state.json"
 LOCK_PATH = STATE_PATH.with_suffix(".lock")
@@ -131,8 +134,8 @@ class State:
         ]
 
 
-def acquire_lock() -> bool:
-    """Try to acquire a file lock. Returns True if acquired, False if already held."""
+def _try_create_lock() -> bool:
+    """Attempt to create the lock file. Returns True if successful."""
     try:
         fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         os.write(fd, str(os.getpid()).encode())
@@ -140,6 +143,32 @@ def acquire_lock() -> bool:
         return True
     except FileExistsError:
         return False
+
+
+def acquire_lock() -> bool:
+    """Try to acquire a file lock. Returns True if acquired, False if already held.
+
+    If the lock is held by a dead process (stale lock), it is automatically
+    removed and re-acquired.
+    """
+    if _try_create_lock():
+        return True
+
+    # Lock exists — check if the holding process is still alive
+    try:
+        pid = int(LOCK_PATH.read_text().strip())
+        os.kill(pid, 0)  # signal 0: check existence only
+    except (ValueError, OSError):
+        # Stale lock: PID is dead or lock file is malformed
+        log.warning("Removing stale lock (previous process died)")
+        try:
+            LOCK_PATH.unlink()
+        except FileNotFoundError:
+            pass
+        return _try_create_lock()
+
+    # Process is alive — lock is valid
+    return False
 
 
 def release_lock() -> None:
