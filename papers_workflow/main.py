@@ -144,6 +144,89 @@ def _reprocess(args: list[str]) -> None:
             log.info("Reprocessed: %s", title)
 
 
+def _dry_run() -> None:
+    """Preview what the workflow would do without making any changes."""
+    from papers_workflow import config
+    from papers_workflow import zotero_client
+    from papers_workflow import remarkable_client
+    from papers_workflow.state import State
+
+    logging.basicConfig(
+        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    log.info("=== DRY RUN — no changes will be made ===")
+    state = State()
+
+    # Retry queue
+    awaiting = state.documents_with_status("awaiting_pdf")
+    if awaiting:
+        log.info("[dry-run] %d paper(s) awaiting PDF sync:", len(awaiting))
+        for doc in awaiting:
+            log.info("  - %s", doc["title"])
+
+    # Step 1: Check Zotero for new papers
+    current_version = zotero_client.get_library_version()
+    stored_version = state.zotero_library_version
+
+    if stored_version == 0:
+        log.info("[dry-run] First run — would set version watermark to %d", current_version)
+    elif current_version == stored_version:
+        log.info("[dry-run] Zotero library unchanged (version %d)", current_version)
+    else:
+        log.info("[dry-run] Zotero library changed: %d → %d", stored_version, current_version)
+        changed_keys, _ = zotero_client.get_changed_item_keys(stored_version)
+        new_keys = [k for k in changed_keys if not state.has_document(k)]
+        if new_keys:
+            items = zotero_client.get_items_by_keys(new_keys)
+            new_papers = zotero_client.filter_new_papers(items)
+            if new_papers:
+                log.info("[dry-run] Would send %d paper(s) to reMarkable:", len(new_papers))
+                for p in new_papers:
+                    meta = zotero_client.extract_metadata(p)
+                    log.info("  - %s (%s)", meta["title"], ", ".join(meta["authors"][:2]))
+            else:
+                log.info("[dry-run] No new papers to send")
+        else:
+            log.info("[dry-run] All changed items already tracked")
+
+    # Step 2: Check reMarkable for read papers
+    on_remarkable = state.documents_with_status("on_remarkable")
+    read_docs = remarkable_client.list_folder(config.RM_FOLDER_READ)
+
+    read_matches = [d for d in on_remarkable if d["remarkable_doc_name"] in read_docs]
+    if read_matches:
+        log.info("[dry-run] Would process %d read paper(s):", len(read_matches))
+        for doc in read_matches:
+            log.info("  - %s", doc["title"])
+    else:
+        log.info("[dry-run] No read papers to process")
+
+    # Step 2b: Check reMarkable for skimmed papers
+    skimmed_docs = remarkable_client.list_folder(config.RM_FOLDER_SKIMMED)
+
+    skimmed_matches = [d for d in on_remarkable if d["remarkable_doc_name"] in skimmed_docs]
+    if skimmed_matches:
+        log.info("[dry-run] Would process %d skimmed paper(s):", len(skimmed_matches))
+        for doc in skimmed_matches:
+            log.info("  - %s", doc["title"])
+    else:
+        log.info("[dry-run] No skimmed papers to process")
+
+    # Summary
+    total = len(read_matches) + len(skimmed_matches)
+    if awaiting:
+        total += len(awaiting)
+    if total:
+        log.info("[dry-run] Total actions: %d paper(s) would be processed", total)
+    else:
+        log.info("[dry-run] Nothing to do")
+
+    log.info("=== DRY RUN complete ===")
+
+
 def main():
     if "--register" in sys.argv:
         from papers_workflow.remarkable_auth import register_interactive
@@ -158,6 +241,10 @@ def main():
     if "--digest" in sys.argv:
         from papers_workflow import digest
         digest.send_weekly_digest()
+        return
+
+    if "--dry-run" in sys.argv:
+        _dry_run()
         return
 
     from papers_workflow import config
