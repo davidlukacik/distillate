@@ -41,10 +41,10 @@ def summarize_read_paper(
         f"the paper found or proposes, with specific methods, results, or numbers "
         f"where possible. No filler like 'this paper explores' — jump straight "
         f"into the substance. Write in third person.\n"
-        f"2. One sentence I'd use to tell a friend what the paper is about. "
-        f"Be concrete and specific — mention the actual finding or proposal, "
-        f"not just the topic.\n\n"
-        f"Format:\n[paragraph]\n---\n[sentence]"
+        f"2. One or two short sentences I'd use to tell a friend what the paper "
+        f"is about. Be concrete and specific — mention the actual finding or "
+        f"proposal, not just the topic. Three very short sentences at most.\n\n"
+        f"Format:\n[paragraph]\n---\n[sentences]"
     )
 
     result = _call_claude(prompt)
@@ -77,8 +77,9 @@ def summarize_skimmed_paper(
         return f"Skimmed *{title}*."
 
     prompt = (
-        f"Write one sentence summarizing this research paper — what it found "
-        f"or proposes, concretely. No filler like 'this paper explores'.\n\n"
+        f"Write one or two short sentences summarizing this research paper — "
+        f"what it found or proposes, concretely. No filler like 'this paper "
+        f"explores'.\n\n"
         f"Paper: {title}\n\nAbstract: {abstract}"
     )
 

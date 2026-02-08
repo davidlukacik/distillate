@@ -72,13 +72,16 @@ def _paper_html(p):
     summary = p.get("summary", "")
     link = _paper_link(p)
 
-    link_html = f' <a href="{link}">[link]</a>' if link else ""
+    if link:
+        title_html = f'<a href="{link}"><strong>{title}</strong></a>'
+    else:
+        title_html = f"<strong>{title}</strong>"
+
     summary_html = f" — {summary}" if summary else ""
 
     return (
         f"<li style='margin-bottom: 8px;'>"
-        f"<strong>{title}</strong>"
-        f"{summary_html}{link_html}"
+        f"{title_html}{summary_html}"
         f"</li>"
     )
 
