@@ -90,6 +90,13 @@ def _reprocess(args: list[str]) -> None:
             elif linked:
                 zotero_client.delete_attachment(linked["key"])
 
+            # Fetch fresh metadata from Zotero
+            meta = doc.get("metadata", {})
+            if not meta:
+                items = zotero_client.get_items_by_keys([item_key])
+                if items:
+                    meta = zotero_client.extract_metadata(items[0])
+
             # Recreate Obsidian note (delete existing first)
             obsidian.ensure_dataview_note()
             obsidian.delete_paper_note(title)
@@ -100,6 +107,11 @@ def _reprocess(args: list[str]) -> None:
                 zotero_item_key=item_key,
                 highlights=highlights or None,
                 pdf_filename=pdf_filename,
+                doi=meta.get("doi", ""),
+                abstract=meta.get("abstract", ""),
+                url=meta.get("url", ""),
+                publication_date=meta.get("publication_date", ""),
+                journal=meta.get("journal", ""),
             )
             log.info("Reprocessed: %s", title)
 
@@ -265,6 +277,7 @@ def main():
                                             title=title,
                                             authors=authors,
                                             status="awaiting_pdf",
+                                            metadata=meta,
                                         )
                                         continue
                                     raise
@@ -297,6 +310,7 @@ def main():
                                 remarkable_doc_name=title,
                                 title=title,
                                 authors=authors,
+                                metadata=meta,
                             )
                             state.save()
                             sent_count += 1
@@ -387,6 +401,7 @@ def main():
                 )
 
                 # Create Obsidian note with extracted highlights
+                meta = doc.get("metadata", {})
                 obsidian.ensure_dataview_note()
                 obsidian.create_paper_note(
                     title=doc["title"],
@@ -395,6 +410,11 @@ def main():
                     zotero_item_key=item_key,
                     highlights=highlights or None,
                     pdf_filename=pdf_filename,
+                    doi=meta.get("doi", ""),
+                    abstract=meta.get("abstract", ""),
+                    url=meta.get("url", ""),
+                    publication_date=meta.get("publication_date", ""),
+                    journal=meta.get("journal", ""),
                 )
 
                 # Move to Archive on reMarkable

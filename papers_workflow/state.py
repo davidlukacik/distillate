@@ -97,6 +97,7 @@ class State:
         title: str,
         authors: List[str],
         status: str = "on_remarkable",
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._data["documents"][zotero_item_key] = {
             "zotero_item_key": zotero_item_key,
@@ -106,6 +107,7 @@ class State:
             "title": title,
             "authors": authors,
             "status": status,
+            "metadata": metadata or {},
             "uploaded_at": datetime.now(timezone.utc).isoformat(),
             "processed_at": None,
         }

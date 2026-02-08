@@ -123,6 +123,11 @@ def create_paper_note(
     zotero_item_key: str,
     highlights: Optional[List[str]] = None,
     pdf_filename: Optional[str] = None,
+    doi: str = "",
+    abstract: str = "",
+    url: str = "",
+    publication_date: str = "",
+    journal: str = "",
 ) -> Optional[Path]:
     """Create an Obsidian note for a read paper.
 
@@ -152,11 +157,26 @@ def create_paper_note(
     else:
         highlights_md = "*No highlights extracted.*"
 
-    # Optional PDF frontmatter line
+    # Optional frontmatter lines
+    optional = ""
+    if doi:
+        optional += f'\ndoi: "{_escape_yaml(doi)}"'
+    if journal:
+        optional += f'\njournal: "{_escape_yaml(journal)}"'
+    if publication_date:
+        optional += f'\npublication_date: "{publication_date}"'
+    if url:
+        optional += f'\nurl: "{_escape_yaml(url)}"'
     pdf_yaml = f'\npdf: "[[{pdf_filename}]]"' if pdf_filename else ""
 
     # Optional PDF embed in note body
     pdf_embed = f"![[{pdf_filename}]]\n\n" if pdf_filename else ""
+
+    # Optional abstract section
+    if abstract:
+        abstract_md = f"## Abstract\n\n> {abstract}\n\n"
+    else:
+        abstract_md = ""
 
     content = f"""\
 ---
@@ -165,14 +185,14 @@ authors:
 {authors_yaml}
 date_added: {date_added[:10]}
 date_read: {today}
-zotero: "zotero://select/items/{zotero_item_key}"{pdf_yaml}
+zotero: "zotero://select/items/{zotero_item_key}"{optional}{pdf_yaml}
 tags:
 {tags_yaml}
 ---
 
 # {title}
 
-{pdf_embed}## Highlights
+{pdf_embed}{abstract_md}## Highlights
 
 {highlights_md}
 

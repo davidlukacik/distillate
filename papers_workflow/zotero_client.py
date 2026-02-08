@@ -252,7 +252,7 @@ def create_linked_attachment(
 
 
 def extract_metadata(item: Dict[str, Any]) -> Dict[str, Any]:
-    """Extract title and authors from a Zotero item."""
+    """Extract metadata from a Zotero item."""
     data = item.get("data", {})
     title = data.get("title", "Untitled")
     creators = data.get("creators", [])
@@ -266,4 +266,17 @@ def extract_metadata(item: Dict[str, Any]) -> Dict[str, Any]:
             c.get("lastName") or c.get("name", "Unknown")
             for c in creators
         ]
-    return {"title": title, "authors": authors}
+    return {
+        "title": title,
+        "authors": authors,
+        "doi": data.get("DOI", ""),
+        "abstract": data.get("abstractNote", ""),
+        "url": data.get("url", ""),
+        "publication_date": data.get("date", ""),
+        "journal": (
+            data.get("publicationTitle")
+            or data.get("proceedingsTitle")
+            or data.get("bookTitle")
+            or ""
+        ),
+    }
