@@ -60,5 +60,7 @@ OBSIDIAN_VAULT_NAME: str = (
     or (Path(OBSIDIAN_VAULT_PATH).name if OBSIDIAN_VAULT_PATH else "")
 )
 
+ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+
 HTTP_TIMEOUT: int = int(os.environ.get("HTTP_TIMEOUT", "30"))
 LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO").strip().upper()

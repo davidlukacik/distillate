@@ -271,6 +271,52 @@ tags:
     return note_path
 
 
+def append_to_reading_log(
+    title: str,
+    status: str,
+    summary: str,
+    authors: Optional[List[str]] = None,
+) -> None:
+    """Append a paper entry to the Reading Log note.
+
+    Creates the note with a header if it doesn't exist yet.
+    Status should be "Read" or "Skimmed".
+    """
+    d = _papers_dir()
+    if d is None:
+        return
+
+    log_path = d / "Reading Log.md"
+    today = date.today().isoformat()
+
+    if not log_path.exists():
+        log_path.write_text("# Reading Log\n\n")
+        log.info("Created Reading Log: %s", log_path)
+
+    sanitized = _sanitize_note_name(title)
+    authors_str = ", ".join(authors[:3]) if authors else "Unknown"
+    if authors and len(authors) > 3:
+        authors_str += " et al."
+
+    entry = (
+        f"### [[{sanitized}|{title}]]\n"
+        f"**{status}** on {today} — {authors_str}\n\n"
+        f"{summary}\n\n---\n\n"
+    )
+
+    # Append after the header line
+    existing = log_path.read_text()
+    # Insert new entry right after the "# Reading Log" header
+    if "\n\n" in existing:
+        header, rest = existing.split("\n\n", 1)
+        updated = f"{header}\n\n{entry}{rest}"
+    else:
+        updated = f"{existing}\n\n{entry}"
+
+    log_path.write_text(updated)
+    log.info("Appended to Reading Log: %s (%s)", title, status)
+
+
 def get_obsidian_uri(title: str) -> Optional[str]:
     """Return an obsidian:// URI that opens the paper note in the vault.
 

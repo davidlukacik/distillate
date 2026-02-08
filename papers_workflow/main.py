@@ -20,6 +20,7 @@ def _reprocess(args: list[str]) -> None:
     from papers_workflow import remarkable_client
     from papers_workflow import obsidian
     from papers_workflow import renderer
+    from papers_workflow import summarizer
     from papers_workflow import zotero_client
     from papers_workflow.state import State
 
@@ -119,6 +120,14 @@ def _reprocess(args: list[str]) -> None:
             if obsidian_uri:
                 zotero_client.create_obsidian_link(item_key, obsidian_uri)
 
+            # Update reading log
+            summary = summarizer.summarize_read_paper(
+                title, abstract=meta.get("abstract", ""), highlights=highlights,
+            )
+            obsidian.append_to_reading_log(
+                title, "Read", summary, authors=doc["authors"],
+            )
+
             log.info("Reprocessed: %s", title)
 
 
@@ -139,6 +148,7 @@ def main():
     from papers_workflow import obsidian
     from papers_workflow import notify
     from papers_workflow import renderer
+    from papers_workflow import summarizer
     from papers_workflow.state import State, acquire_lock, release_lock
 
     # Setup logging
@@ -428,6 +438,16 @@ def main():
                 if obsidian_uri:
                     zotero_client.create_obsidian_link(item_key, obsidian_uri)
 
+                # Append to reading log with AI summary
+                read_summary = summarizer.summarize_read_paper(
+                    doc["title"],
+                    abstract=meta.get("abstract", ""),
+                    highlights=highlights,
+                )
+                obsidian.append_to_reading_log(
+                    doc["title"], "Read", read_summary, authors=doc["authors"],
+                )
+
                 # Move to Archive on reMarkable
                 remarkable_client.move_document(
                     rm_name, config.RM_FOLDER_READ, config.RM_FOLDER_ARCHIVE,
@@ -489,6 +509,14 @@ def main():
                 obsidian_uri = obsidian.get_obsidian_uri(doc["title"])
                 if obsidian_uri:
                     zotero_client.create_obsidian_link(item_key, obsidian_uri)
+
+                # Append to reading log with AI summary
+                skimmed_summary = summarizer.summarize_skimmed_paper(
+                    doc["title"], abstract=meta.get("abstract", ""),
+                )
+                obsidian.append_to_reading_log(
+                    doc["title"], "Skimmed", skimmed_summary, authors=doc["authors"],
+                )
 
                 # Move to Archive on reMarkable
                 remarkable_client.move_document(
