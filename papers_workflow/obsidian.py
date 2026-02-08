@@ -102,7 +102,7 @@ def save_annotated_pdf(title: str, pdf_bytes: bytes) -> Optional[Path]:
     return pdf_path
 
 
-def ensure_reading_logs() -> None:
+def ensure_dataview_note() -> None:
     """Create the Dataview reading log note if it doesn't exist."""
     d = _papers_dir()
     if d is None:
@@ -113,12 +113,7 @@ def ensure_reading_logs() -> None:
         dataview_path.write_text(
             _DATAVIEW_TEMPLATE.format(folder=config.OBSIDIAN_PAPERS_FOLDER)
         )
-        log.info("Created Dataview reading log: %s", dataview_path)
-
-    simple_path = d / config.OBSIDIAN_LOG_FILE
-    if not simple_path.exists():
-        simple_path.write_text("# Reading Log\n\n")
-        log.info("Created simple reading log: %s", simple_path)
+        log.info("Created Dataview note: %s", dataview_path)
 
 
 def create_paper_note(
@@ -188,31 +183,6 @@ tags:
     log.info("Created Obsidian note: %s", note_path)
     return note_path
 
-
-def append_to_reading_log(title: str, authors: List[str]) -> None:
-    """Append an entry to the simple reading log."""
-    d = _papers_dir()
-    if d is None:
-        return
-
-    log_path = d / config.OBSIDIAN_LOG_FILE
-    if not log_path.exists():
-        log_path.write_text("# Reading Log\n\n")
-
-    today = date.today().isoformat()
-    if authors:
-        authors_str = ", ".join(authors[:3])
-        if len(authors) > 3:
-            authors_str += " et al."
-    else:
-        authors_str = "Unknown"
-
-    entry = f"- {today} — [[{title}]] ({authors_str})\n"
-
-    with open(log_path, "a") as f:
-        f.write(entry)
-
-    log.info("Appended to reading log: %s", title)
 
 
 def _sanitize_note_name(name: str) -> str:

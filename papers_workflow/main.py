@@ -91,7 +91,7 @@ def _reprocess(args: list[str]) -> None:
                 zotero_client.delete_attachment(linked["key"])
 
             # Recreate Obsidian note (delete existing first)
-            obsidian.ensure_reading_logs()
+            obsidian.ensure_dataview_note()
             obsidian.delete_paper_note(title)
             obsidian.create_paper_note(
                 title=title,
@@ -387,7 +387,7 @@ def main():
                 )
 
                 # Create Obsidian note with extracted highlights
-                obsidian.ensure_reading_logs()
+                obsidian.ensure_dataview_note()
                 obsidian.create_paper_note(
                     title=doc["title"],
                     authors=doc["authors"],
@@ -396,7 +396,6 @@ def main():
                     highlights=highlights or None,
                     pdf_filename=pdf_filename,
                 )
-                obsidian.append_to_reading_log(doc["title"], doc["authors"])
 
                 # Move to Archive on reMarkable
                 remarkable_client.move_document(
