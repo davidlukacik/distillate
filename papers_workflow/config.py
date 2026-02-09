@@ -44,10 +44,11 @@ ZOTERO_USER_ID: str = _require("ZOTERO_USER_ID")
 REMARKABLE_DEVICE_TOKEN: str = os.environ.get("REMARKABLE_DEVICE_TOKEN", "").strip()
 
 # Configurable with defaults
-RM_FOLDER_TO_READ: str = os.environ.get("RM_FOLDER_TO_READ", "To Read").strip()
-RM_FOLDER_READ: str = os.environ.get("RM_FOLDER_READ", "Read").strip()
-RM_FOLDER_ARCHIVE: str = os.environ.get("RM_FOLDER_ARCHIVE", "Archive").strip()
-RM_FOLDER_SKIMMED: str = os.environ.get("RM_FOLDER_SKIMMED", "Skimmed").strip()
+RM_FOLDER_PAPERS: str = os.environ.get("RM_FOLDER_PAPERS", "Papers").strip()
+RM_FOLDER_TO_READ: str = os.environ.get("RM_FOLDER_TO_READ", "Papers/To Read").strip()
+RM_FOLDER_READ: str = os.environ.get("RM_FOLDER_READ", "Papers/Read").strip()
+RM_FOLDER_ARCHIVE: str = os.environ.get("RM_FOLDER_ARCHIVE", "Papers/Archive").strip()
+RM_FOLDER_SKIMMED: str = os.environ.get("RM_FOLDER_SKIMMED", "Papers/Skimmed").strip()
 
 ZOTERO_TAG_TO_READ: str = os.environ.get("ZOTERO_TAG_TO_READ", "to-read").strip()
 ZOTERO_TAG_READ: str = os.environ.get("ZOTERO_TAG_READ", "read").strip()

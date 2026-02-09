@@ -309,6 +309,103 @@ def _sync_state() -> None:
     log.info("Synced state.json to gist %s", gist_id)
 
 
+def _promote() -> None:
+    """Pick 3 papers to read next and move them to the Papers root on reMarkable."""
+    from datetime import datetime, timedelta, timezone
+
+    from papers_workflow import config
+    from papers_workflow import remarkable_client
+    from papers_workflow import summarizer
+    from papers_workflow.state import State
+
+    logging.basicConfig(
+        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    state = State()
+
+    # Demote old promoted papers back to To Read
+    old_promoted = state.promoted_papers
+    if old_promoted:
+        papers_root_docs = remarkable_client.list_folder(config.RM_FOLDER_PAPERS)
+        for key in old_promoted:
+            doc = state.get_document(key)
+            if not doc or doc["status"] != "on_remarkable":
+                continue
+            rm_name = doc["remarkable_doc_name"]
+            if rm_name in papers_root_docs:
+                remarkable_client.move_document(
+                    rm_name, config.RM_FOLDER_PAPERS, config.RM_FOLDER_TO_READ,
+                )
+                log.info("Demoted: %s", doc["title"])
+        state.promoted_papers = []
+        state.save()
+
+    # Gather unread papers for suggestion
+    unread = state.documents_with_status("on_remarkable")
+    if not unread:
+        log.info("No papers in reading queue, nothing to promote")
+        return
+
+    # Build enriched lists for suggestion engine
+    unread_enriched = []
+    for doc in unread:
+        meta = doc.get("metadata", {})
+        unread_enriched.append({
+            "title": doc["title"],
+            "tags": meta.get("tags", []),
+            "paper_type": meta.get("paper_type", ""),
+            "uploaded_at": doc.get("uploaded_at", ""),
+        })
+
+    since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    recent = state.documents_processed_since(since)
+    recent_enriched = []
+    for doc in recent:
+        meta = doc.get("metadata", {})
+        recent_enriched.append({
+            "title": doc["title"],
+            "tags": meta.get("tags", []),
+            "summary": doc.get("summary", ""),
+            "reading_status": doc.get("reading_status", "read"),
+        })
+
+    # Ask Claude to pick 3
+    result = summarizer.suggest_papers(unread_enriched, recent_enriched)
+    if not result:
+        log.warning("Could not generate suggestions")
+        return
+
+    # Match suggested titles back to documents
+    to_read_docs = remarkable_client.list_folder(config.RM_FOLDER_TO_READ)
+    title_to_key = {doc["title"].lower(): doc["zotero_item_key"] for doc in unread}
+    title_to_rm = {doc["title"].lower(): doc["remarkable_doc_name"] for doc in unread}
+
+    promoted_keys = []
+    for line in result.strip().split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        for title_lower, key in title_to_key.items():
+            if title_lower in line.lower() and key not in promoted_keys:
+                rm_name = title_to_rm[title_lower]
+                if rm_name in to_read_docs:
+                    remarkable_client.move_document(
+                        rm_name, config.RM_FOLDER_TO_READ, config.RM_FOLDER_PAPERS,
+                    )
+                    promoted_keys.append(key)
+                    log.info("Promoted: %s", rm_name)
+                break
+        if len(promoted_keys) >= 3:
+            break
+
+    state.promoted_papers = promoted_keys
+    state.save()
+    log.info("Promoted %d paper(s) to Papers root", len(promoted_keys))
+
+
 def main():
     if "--register" in sys.argv:
         from papers_workflow.remarkable_auth import register_interactive
@@ -336,6 +433,10 @@ def main():
     if "--suggest" in sys.argv:
         from papers_workflow import digest
         digest.send_suggestion()
+        return
+
+    if "--promote" in sys.argv:
+        _promote()
         return
 
     if "--sync-state" in sys.argv:

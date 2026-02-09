@@ -22,6 +22,7 @@ _DEFAULT_STATE = {
     "zotero_library_version": 0,
     "last_poll_timestamp": None,
     "documents": {},
+    "promoted_papers": [],
 }
 
 
@@ -132,6 +133,11 @@ class State:
                 doc["summary"] = summary
             if note_summary:
                 doc["note_summary"] = note_summary
+            # Remove from promoted list if present
+            promoted = self._data.get("promoted_papers", [])
+            if zotero_item_key in promoted:
+                promoted.remove(zotero_item_key)
+                self._data["promoted_papers"] = promoted
 
     def mark_deleted(self, zotero_item_key: str) -> None:
         doc = self._data["documents"].get(zotero_item_key)
@@ -144,6 +150,17 @@ class State:
             for doc in self._data["documents"].values()
             if doc["status"] == status
         ]
+
+    # -- Promoted papers --
+
+    @property
+    def promoted_papers(self) -> List[str]:
+        """Return list of Zotero item keys currently promoted to Papers root."""
+        return self._data.get("promoted_papers", [])
+
+    @promoted_papers.setter
+    def promoted_papers(self, keys: List[str]) -> None:
+        self._data["promoted_papers"] = keys
 
     def documents_processed_since(self, since_iso: str) -> List[Dict[str, Any]]:
         """Return documents processed on or after the given ISO timestamp."""

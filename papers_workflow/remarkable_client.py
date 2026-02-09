@@ -39,20 +39,32 @@ def _run(args: List[str], check: bool = True) -> subprocess.CompletedProcess:
 
 def ensure_folders() -> None:
     """Create the workflow folders on reMarkable if they don't exist."""
-    existing = {
-        line.split("\t", 1)[-1].strip()
-        for line in _run(["ls", "/"]).stdout.splitlines()
-        if line.startswith("[d]")
-    }
+    # Create parent folder first, then subfolders
+    _ensure_folder(config.RM_FOLDER_PAPERS)
     for folder in (
         config.RM_FOLDER_TO_READ,
         config.RM_FOLDER_READ,
         config.RM_FOLDER_SKIMMED,
         config.RM_FOLDER_ARCHIVE,
     ):
-        if folder not in existing:
-            _run(["mkdir", f"/{folder}"])
-            log.info("Created reMarkable folder: /%s", folder)
+        _ensure_folder(folder)
+
+
+def _ensure_folder(folder: str) -> None:
+    """Create a folder on reMarkable if it doesn't exist."""
+    parent = "/" + "/".join(folder.split("/")[:-1]) if "/" in folder else "/"
+    name = folder.split("/")[-1]
+    result = _run(["ls", parent], check=False)
+    if result.returncode != 0:
+        return
+    existing = {
+        line.split("\t", 1)[-1].strip()
+        for line in result.stdout.splitlines()
+        if line.startswith("[d]")
+    }
+    if name not in existing:
+        _run(["mkdir", f"/{folder}"])
+        log.info("Created reMarkable folder: /%s", folder)
 
 
 def list_folder(folder: str) -> List[str]:
