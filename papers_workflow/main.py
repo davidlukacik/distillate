@@ -800,12 +800,19 @@ def main():
             item_key = doc["zotero_item_key"]
 
             try:
-                # Clean up original from Inbox folder
-                obsidian.delete_inbox_pdf(doc["title"])
+                # Move original PDF from Inbox to Leafed folder
+                moved = obsidian.move_inbox_pdf_to_leafed(doc["title"])
+                pdf_filename = moved.name if moved else None
 
-                # Update linked attachment (keep existing if no new PDF)
+                # Update linked attachment to point to moved PDF
                 linked = zotero_client.get_linked_attachment(item_key)
-                if linked:
+                if moved:
+                    new_att = zotero_client.create_linked_attachment(
+                        item_key, moved.name, str(moved),
+                    )
+                    if new_att and linked:
+                        zotero_client.delete_attachment(linked["key"])
+                elif linked:
                     zotero_client.delete_attachment(linked["key"])
 
                 # Update Zotero tag
@@ -821,6 +828,7 @@ def main():
                     authors=doc["authors"],
                     date_added=doc["uploaded_at"],
                     zotero_item_key=item_key,
+                    pdf_filename=pdf_filename,
                     doi=meta.get("doi", ""),
                     url=meta.get("url", ""),
                     publication_date=meta.get("publication_date", ""),
@@ -829,7 +837,7 @@ def main():
                 )
 
                 # Add Obsidian deep link in Zotero
-                obsidian_uri = obsidian.get_obsidian_uri(doc["title"])
+                obsidian_uri = obsidian.get_obsidian_uri(doc["title"], subfolder="Leafed")
                 if obsidian_uri:
                     zotero_client.create_obsidian_link(item_key, obsidian_uri)
 

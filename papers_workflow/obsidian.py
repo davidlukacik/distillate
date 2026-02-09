@@ -5,6 +5,7 @@ and maintains a simple reading log.
 """
 
 import logging
+import shutil
 from datetime import date
 from pathlib import Path
 from typing import List, Optional
@@ -45,6 +46,26 @@ def _inbox_dir() -> Optional[Path]:
     return inbox
 
 
+def _read_dir() -> Optional[Path]:
+    """Return the Read subdirectory in the papers folder, or None if unconfigured."""
+    d = _papers_dir()
+    if d is None:
+        return None
+    rd = d / "Read"
+    rd.mkdir(parents=True, exist_ok=True)
+    return rd
+
+
+def _leafed_dir() -> Optional[Path]:
+    """Return the Leafed subdirectory in the papers folder, or None if unconfigured."""
+    d = _papers_dir()
+    if d is None:
+        return None
+    ld = d / "Leafed"
+    ld.mkdir(parents=True, exist_ok=True)
+    return ld
+
+
 def save_inbox_pdf(title: str, pdf_bytes: bytes) -> Optional[Path]:
     """Save an original PDF to the Obsidian vault Inbox folder.
 
@@ -74,30 +95,67 @@ def delete_inbox_pdf(title: str) -> None:
         log.info("Removed from Inbox: %s", pdf_path)
 
 
+def move_inbox_pdf_to_leafed(title: str) -> Optional[Path]:
+    """Move a PDF from the Inbox folder to the Leafed folder.
+
+    Uses copy-then-delete for safety. Returns the destination path,
+    or None if the source PDF doesn't exist or Obsidian is unconfigured.
+    """
+    inbox = _inbox_dir()
+    ld = _leafed_dir()
+    if inbox is None or ld is None:
+        return None
+
+    sanitized = _sanitize_note_name(title)
+    src = inbox / f"{sanitized}.pdf"
+    if not src.exists():
+        log.info("No Inbox PDF to move for '%s'", title)
+        return None
+
+    dst = ld / f"{sanitized}.pdf"
+    shutil.copy2(str(src), str(dst))
+    if dst.exists():
+        src.unlink()
+        log.info("Moved PDF from Inbox to Leafed: %s", dst)
+        return dst
+
+    log.warning("Failed to copy PDF to Leafed for '%s'", title)
+    return None
+
+
 def delete_paper_note(title: str) -> None:
-    """Delete an existing paper note if it exists."""
-    d = _papers_dir()
-    if d is None:
+    """Delete an existing paper note if it exists (checks Read/ subfolder)."""
+    rd = _read_dir()
+    if rd is None:
         return
 
     sanitized = _sanitize_note_name(title)
-    note_path = d / f"{sanitized}.md"
+    note_path = rd / f"{sanitized}.md"
     if note_path.exists():
         note_path.unlink()
         log.info("Deleted existing note: %s", note_path)
 
+    # Also check papers root for notes created before subfolder migration
+    d = _papers_dir()
+    if d is None:
+        return
+    legacy_path = d / f"{sanitized}.md"
+    if legacy_path.exists():
+        legacy_path.unlink()
+        log.info("Deleted legacy note: %s", legacy_path)
+
 
 def save_annotated_pdf(title: str, pdf_bytes: bytes) -> Optional[Path]:
-    """Save an annotated PDF to the Obsidian vault papers folder.
+    """Save an annotated PDF to the Obsidian vault Read folder.
 
     Returns the path to the saved file, or None if Obsidian is unconfigured.
     """
-    d = _papers_dir()
-    if d is None:
+    rd = _read_dir()
+    if rd is None:
         return None
 
     sanitized = _sanitize_note_name(title)
-    pdf_path = d / f"{sanitized}.pdf"
+    pdf_path = rd / f"{sanitized}.pdf"
     pdf_path.write_bytes(pdf_bytes)
     log.info("Saved annotated PDF: %s", pdf_path)
     return pdf_path
@@ -133,17 +191,17 @@ def create_paper_note(
     takeaway: str = "",
     topic_tags: Optional[List[str]] = None,
 ) -> Optional[Path]:
-    """Create an Obsidian note for a read paper.
+    """Create an Obsidian note for a read paper in the Read subfolder.
 
     Returns the path to the created note, or None if Obsidian is unconfigured
     or the note already exists.
     """
-    d = _papers_dir()
-    if d is None:
+    rd = _read_dir()
+    if rd is None:
         return None
 
     sanitized = _sanitize_note_name(title)
-    note_path = d / f"{sanitized}.md"
+    note_path = rd / f"{sanitized}.md"
 
     if note_path.exists():
         log.warning("Note already exists, skipping: %s", note_path)
@@ -222,13 +280,13 @@ def create_leafed_note(
     journal: str = "",
     topic_tags: Optional[List[str]] = None,
 ) -> Optional[Path]:
-    """Create a minimal Obsidian note for a leafed-through paper."""
-    d = _papers_dir()
-    if d is None:
+    """Create a minimal Obsidian note for a leafed-through paper in the Leafed subfolder."""
+    ld = _leafed_dir()
+    if ld is None:
         return None
 
     sanitized = _sanitize_note_name(title)
-    note_path = d / f"{sanitized}.md"
+    note_path = ld / f"{sanitized}.md"
 
     if note_path.exists():
         log.warning("Note already exists, skipping: %s", note_path)
@@ -308,18 +366,17 @@ def append_to_reading_log(
     log.info("Appended to Reading Log: %s (%s)", title, status)
 
 
-def get_obsidian_uri(title: str) -> Optional[str]:
+def get_obsidian_uri(title: str, subfolder: str = "Read") -> Optional[str]:
     """Return an obsidian:// URI that opens the paper note in the vault.
 
+    subfolder should be "Read" or "Leafed".
     Returns None if vault name is not configured.
-    Note: Zotero iOS may not handle custom URL schemes in linked_url
-    attachments — works on desktop.
     """
     if not config.OBSIDIAN_VAULT_NAME:
         return None
 
     sanitized = _sanitize_note_name(title)
-    file_path = f"{config.OBSIDIAN_PAPERS_FOLDER}/{sanitized}"
+    file_path = f"{config.OBSIDIAN_PAPERS_FOLDER}/{subfolder}/{sanitized}"
     return f"obsidian://open?vault={quote(config.OBSIDIAN_VAULT_NAME)}&file={quote(file_path)}"
 
 
