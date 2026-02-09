@@ -14,6 +14,9 @@
 - ~~Safety improvements~~ — Stale lock detection, create-then-delete ordering, try-except per document, per-paper state saves.
 - ~~Two-column highlight fix~~ — GlyphRange items sorted by y-coordinate before merging, with word deduplication at boundaries.
 - ~~AI reading log~~ — Flat bullet list in `Reading Log.md` with inline dates and one-sentence summaries.
+- ~~Topic tag extraction~~ — Claude Haiku extracts 3-5 topic tags + paper type at ingestion. `--backfill-tags` for existing papers.
+- ~~Daily paper suggestions~~ — `--suggest` sends email with 3 papers to read next, balancing relevance, diversity, and queue age.
+- ~~GitHub Actions scheduling~~ — Cron-based `--suggest` (daily) and `--digest` (weekly) via GitHub Actions. `--sync-state` pushes state.json to remote.
 
 ## Tier 2 — High value, moderate effort
 
@@ -26,31 +29,25 @@ After processing a paper, use Semantic Scholar API to find related papers. Add a
 ### 9. Zotero collection filtering
 Only sync papers from specific collections (configurable via `ZOTERO_COLLECTIONS`). For people who use Zotero broadly but only want some papers on reMarkable.
 
-### 10. Reading queue insights
-Track how long papers sit in `/To Read`. Notify if a paper has been unread for >2 weeks. Suggest which to read next based on topic diversity or recency.
-
 ## Tier 3 — Nice to have
 
-### 11. Paper comparison tables
+### 10. Paper comparison tables
 When multiple papers on the same topic are processed, Claude generates a comparison table (approach, dataset, key result, limitation) as a standalone Obsidian note.
 
-### 12. Research questions extraction
+### 11. Research questions extraction
 Claude identifies open questions and future directions from the paper. Add as a section in the note. Helps identify research gaps.
 
-### 13. Obsidian Canvas integration
+### 12. Obsidian Canvas integration
 Auto-generate a research map (Canvas file) connecting papers by shared topics/citations. Visual overview of your reading.
 
-### 14. Reading stats dashboard
+### 13. Reading stats dashboard
 Papers per week/month, highlights per paper, topic distribution, reading streaks. Obsidian Dataview note or standalone HTML report.
 
-### 15. Handwritten margin notes
+### 14. Handwritten margin notes
 Extract pen strokes from `.rm` files, render as images, embed in Obsidian note alongside text highlights.
 
-### 16. GitHub Actions scheduling
-Run the workflow in the cloud on a cron (works when laptop is closed). Out of scope for now.
-
-### 17. Log rotation + better notifications
+### 15. Log rotation + better notifications
 Rotate log files, richer macOS notifications (paper titles), optional Slack/Discord webhooks.
 
-### 18. Literature review generator
+### 16. Literature review generator
 Select a set of papers, Claude generates a mini literature review section synthesizing their findings. Export as markdown or LaTeX.

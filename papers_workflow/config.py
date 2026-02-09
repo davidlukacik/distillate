@@ -66,5 +66,7 @@ RESEND_API_KEY: str = os.environ.get("RESEND_API_KEY", "").strip()
 DIGEST_FROM: str = os.environ.get("DIGEST_FROM", "onboarding@resend.dev").strip()
 DIGEST_TO: str = os.environ.get("DIGEST_TO", "").strip()
 
+STATE_GIST_ID: str = os.environ.get("STATE_GIST_ID", "").strip()
+
 HTTP_TIMEOUT: int = int(os.environ.get("HTTP_TIMEOUT", "30"))
 LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO").strip().upper()

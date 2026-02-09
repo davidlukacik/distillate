@@ -280,6 +280,35 @@ def _backfill_tags() -> None:
     log.info("Backfilled tags for %d paper(s)", count)
 
 
+def _sync_state() -> None:
+    """Upload state.json to a private GitHub Gist for GitHub Actions."""
+    import subprocess
+
+    from papers_workflow import config
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    gist_id = config.STATE_GIST_ID
+    if not gist_id:
+        log.error("STATE_GIST_ID not set — run: gh gist create state.json")
+        return
+
+    from papers_workflow.state import STATE_PATH
+    if not STATE_PATH.exists():
+        log.info("No state.json to sync")
+        return
+
+    subprocess.run(
+        ["gh", "gist", "edit", gist_id, "-f", "state.json", str(STATE_PATH)],
+        check=True,
+    )
+    log.info("Synced state.json to gist %s", gist_id)
+
+
 def main():
     if "--register" in sys.argv:
         from papers_workflow.remarkable_auth import register_interactive
@@ -307,6 +336,10 @@ def main():
     if "--suggest" in sys.argv:
         from papers_workflow import digest
         digest.send_suggestion()
+        return
+
+    if "--sync-state" in sys.argv:
+        _sync_state()
         return
 
     from papers_workflow import config
