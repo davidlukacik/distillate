@@ -18,10 +18,10 @@ _DATAVIEW_TEMPLATE = """\
 # Papers List
 
 ```dataview
-TABLE date_added as "Added", choice(date_read, date_read, date_skimmed) as "Completed", join(authors, ", ") as "Authors", choice(contains(tags, "skimmed"), "Skimmed", "Read") as "Status"
+TABLE date_added as "Added", choice(date_read, date_read, date_leafed) as "Completed", join(authors, ", ") as "Authors", choice(contains(tags, "leafed"), "Leafed", "Read") as "Status"
 FROM "{folder}"
-WHERE tags AND (contains(tags, "read") OR contains(tags, "skimmed"))
-SORT choice(date_read, date_read, date_skimmed) DESC
+WHERE tags AND (contains(tags, "read") OR contains(tags, "leafed"))
+SORT choice(date_read, date_read, date_leafed) DESC
 ```
 """
 
@@ -35,43 +35,43 @@ def _papers_dir() -> Optional[Path]:
     return d
 
 
-def _to_read_dir() -> Optional[Path]:
-    """Return the To Read subdirectory in the papers folder, or None if unconfigured."""
+def _inbox_dir() -> Optional[Path]:
+    """Return the Inbox subdirectory in the papers folder, or None if unconfigured."""
     d = _papers_dir()
     if d is None:
         return None
-    tr = d / "To Read"
-    tr.mkdir(parents=True, exist_ok=True)
-    return tr
+    inbox = d / "Inbox"
+    inbox.mkdir(parents=True, exist_ok=True)
+    return inbox
 
 
-def save_to_read_pdf(title: str, pdf_bytes: bytes) -> Optional[Path]:
-    """Save an original PDF to the Obsidian vault To Read folder.
+def save_inbox_pdf(title: str, pdf_bytes: bytes) -> Optional[Path]:
+    """Save an original PDF to the Obsidian vault Inbox folder.
 
     Returns the path to the saved file, or None if Obsidian is unconfigured.
     """
-    tr = _to_read_dir()
-    if tr is None:
+    inbox = _inbox_dir()
+    if inbox is None:
         return None
 
     sanitized = _sanitize_note_name(title)
-    pdf_path = tr / f"{sanitized}.pdf"
+    pdf_path = inbox / f"{sanitized}.pdf"
     pdf_path.write_bytes(pdf_bytes)
-    log.info("Saved PDF to To Read: %s", pdf_path)
+    log.info("Saved PDF to Inbox: %s", pdf_path)
     return pdf_path
 
 
-def delete_to_read_pdf(title: str) -> None:
-    """Delete a PDF from the To Read folder after processing."""
-    tr = _to_read_dir()
-    if tr is None:
+def delete_inbox_pdf(title: str) -> None:
+    """Delete a PDF from the Inbox folder after processing."""
+    inbox = _inbox_dir()
+    if inbox is None:
         return
 
     sanitized = _sanitize_note_name(title)
-    pdf_path = tr / f"{sanitized}.pdf"
+    pdf_path = inbox / f"{sanitized}.pdf"
     if pdf_path.exists():
         pdf_path.unlink()
-        log.info("Removed from To Read: %s", pdf_path)
+        log.info("Removed from Inbox: %s", pdf_path)
 
 
 def delete_paper_note(title: str) -> None:
@@ -210,7 +210,7 @@ tags:
     return note_path
 
 
-def create_skimmed_note(
+def create_leafed_note(
     title: str,
     authors: List[str],
     date_added: str,
@@ -222,7 +222,7 @@ def create_skimmed_note(
     journal: str = "",
     topic_tags: Optional[List[str]] = None,
 ) -> Optional[Path]:
-    """Create a minimal Obsidian note for a skimmed paper."""
+    """Create a minimal Obsidian note for a leafed-through paper."""
     d = _papers_dir()
     if d is None:
         return None
@@ -237,7 +237,7 @@ def create_skimmed_note(
     today = date.today().isoformat()
 
     authors_yaml = "\n".join(f"  - {a}" for a in authors) if authors else "  - Unknown"
-    all_tags = ["paper", "skimmed"] + (topic_tags or [])
+    all_tags = ["paper", "leafed"] + (topic_tags or [])
     tags_yaml = "\n".join(f"  - {t}" for t in all_tags)
 
     optional = ""
@@ -258,7 +258,7 @@ title: "{_escape_yaml(title)}"
 authors:
 {authors_yaml}
 date_added: {date_added[:10]}
-date_skimmed: {today}
+date_leafed: {today}
 zotero: "zotero://select/library/items/{zotero_item_key}"{optional}{pdf_yaml}
 tags:
 {tags_yaml}
@@ -271,7 +271,7 @@ tags:
 -
 """
     note_path.write_text(content)
-    log.info("Created skimmed note: %s", note_path)
+    log.info("Created leafed note: %s", note_path)
     return note_path
 
 
@@ -283,7 +283,7 @@ def append_to_reading_log(
     """Append a paper entry to the Reading Log note.
 
     Flat bullet list, newest first. Creates the note if needed.
-    Status should be "Read" or "Skimmed".
+    Status should be "Read" or "Leafed".
     """
     d = _papers_dir()
     if d is None:

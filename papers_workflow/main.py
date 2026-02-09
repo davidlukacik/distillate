@@ -60,7 +60,7 @@ def _reprocess(args: list[str]) -> None:
             pdf_path = Path(tmpdir) / f"{rm_name}.pdf"
 
             bundle_ok = remarkable_client.download_document_bundle_to(
-                config.RM_FOLDER_ARCHIVE, rm_name, zip_path,
+                config.RM_FOLDER_VAULT, rm_name, zip_path,
             )
 
             if not bundle_ok or not zip_path.exists():
@@ -210,19 +210,19 @@ def _dry_run() -> None:
     else:
         log.info("[dry-run] No read papers to process")
 
-    # Step 2b: Check reMarkable for skimmed papers
-    skimmed_docs = remarkable_client.list_folder(config.RM_FOLDER_SKIMMED)
+    # Step 2b: Check reMarkable for leafed papers
+    leafed_docs = remarkable_client.list_folder(config.RM_FOLDER_LEAFED)
 
-    skimmed_matches = [d for d in on_remarkable if d["remarkable_doc_name"] in skimmed_docs]
-    if skimmed_matches:
-        log.info("[dry-run] Would process %d skimmed paper(s):", len(skimmed_matches))
-        for doc in skimmed_matches:
+    leafed_matches = [d for d in on_remarkable if d["remarkable_doc_name"] in leafed_docs]
+    if leafed_matches:
+        log.info("[dry-run] Would process %d leafed paper(s):", len(leafed_matches))
+        for doc in leafed_matches:
             log.info("  - %s", doc["title"])
     else:
-        log.info("[dry-run] No skimmed papers to process")
+        log.info("[dry-run] No leafed papers to process")
 
     # Summary
-    total = len(read_matches) + len(skimmed_matches)
+    total = len(read_matches) + len(leafed_matches)
     if awaiting:
         total += len(awaiting)
     if total:
@@ -326,7 +326,7 @@ def _promote() -> None:
 
     state = State()
 
-    # Demote old promoted papers back to To Read
+    # Demote old promoted papers back to Inbox
     old_promoted = state.promoted_papers
     if old_promoted:
         papers_root_docs = remarkable_client.list_folder(config.RM_FOLDER_PAPERS)
@@ -337,7 +337,7 @@ def _promote() -> None:
             rm_name = doc["remarkable_doc_name"]
             if rm_name in papers_root_docs:
                 remarkable_client.move_document(
-                    rm_name, config.RM_FOLDER_PAPERS, config.RM_FOLDER_TO_READ,
+                    rm_name, config.RM_FOLDER_PAPERS, config.RM_FOLDER_INBOX,
                 )
                 log.info("Demoted: %s", doc["title"])
         state.promoted_papers = []
@@ -379,7 +379,7 @@ def _promote() -> None:
         return
 
     # Match suggested titles back to documents
-    to_read_docs = remarkable_client.list_folder(config.RM_FOLDER_TO_READ)
+    inbox_docs = remarkable_client.list_folder(config.RM_FOLDER_INBOX)
     title_to_key = {doc["title"].lower(): doc["zotero_item_key"] for doc in unread}
     title_to_rm = {doc["title"].lower(): doc["remarkable_doc_name"] for doc in unread}
 
@@ -391,9 +391,9 @@ def _promote() -> None:
         for title_lower, key in title_to_key.items():
             if title_lower in line.lower() and key not in promoted_keys:
                 rm_name = title_to_rm[title_lower]
-                if rm_name in to_read_docs:
+                if rm_name in inbox_docs:
                     remarkable_client.move_document(
-                        rm_name, config.RM_FOLDER_TO_READ, config.RM_FOLDER_PAPERS,
+                        rm_name, config.RM_FOLDER_INBOX, config.RM_FOLDER_PAPERS,
                     )
                     promoted_keys.append(key)
                     log.info("Promoted: %s", rm_name)
@@ -482,9 +482,9 @@ def main():
                     pdf_bytes = zotero_client.download_pdf(att_key)
                     log.info("PDF now available for '%s' (%d bytes)", title, len(pdf_bytes))
                     remarkable_client.upload_pdf_bytes(
-                        pdf_bytes, config.RM_FOLDER_TO_READ, title
+                        pdf_bytes, config.RM_FOLDER_INBOX, title
                     )
-                    saved = obsidian.save_to_read_pdf(title, pdf_bytes)
+                    saved = obsidian.save_inbox_pdf(title, pdf_bytes)
                     if saved:
                         new_att = zotero_client.create_linked_attachment(
                             item_key, saved.name, str(saved),
@@ -495,7 +495,7 @@ def main():
                             log.warning("Could not create linked attachment for '%s', keeping imported PDF", title)
                     else:
                         zotero_client.delete_attachment(att_key)
-                    zotero_client.add_tag(item_key, config.ZOTERO_TAG_TO_READ)
+                    zotero_client.add_tag(item_key, config.ZOTERO_TAG_INBOX)
                     state.set_status(item_key, "on_remarkable")
                     state.save()
                     sent_count += 1
@@ -551,7 +551,7 @@ def main():
                     if new_papers:
                         remarkable_client.ensure_folders()
                         existing_on_rm = set(
-                            remarkable_client.list_folder(config.RM_FOLDER_TO_READ)
+                            remarkable_client.list_folder(config.RM_FOLDER_INBOX)
                         )
                     else:
                         existing_on_rm = set()
@@ -600,10 +600,10 @@ def main():
                                     raise
                                 log.info("Downloaded PDF (%d bytes)", len(pdf_bytes))
                                 remarkable_client.upload_pdf_bytes(
-                                    pdf_bytes, config.RM_FOLDER_TO_READ, title
+                                    pdf_bytes, config.RM_FOLDER_INBOX, title
                                 )
-                                # Save original to Obsidian To Read folder
-                                saved = obsidian.save_to_read_pdf(title, pdf_bytes)
+                                # Save original to Obsidian Inbox folder
+                                saved = obsidian.save_inbox_pdf(title, pdf_bytes)
                                 # Create linked attachment, then delete imported
                                 if saved:
                                     new_att = zotero_client.create_linked_attachment(
@@ -626,7 +626,7 @@ def main():
                                 meta["paper_type"] = paper_type
 
                             # Tag in Zotero
-                            zotero_client.add_tag(item_key, config.ZOTERO_TAG_TO_READ)
+                            zotero_client.add_tag(item_key, config.ZOTERO_TAG_INBOX)
 
                             # Track in state
                             state.add_document(
@@ -707,8 +707,8 @@ def main():
                             "Could not get annotated PDF for '%s'", rm_name,
                         )
 
-                    # Clean up original from To Read folder
-                    obsidian.delete_to_read_pdf(doc["title"])
+                    # Clean up original from Inbox folder
+                    obsidian.delete_inbox_pdf(doc["title"])
 
                     # Update linked attachment to point to annotated PDF
                     linked = zotero_client.get_linked_attachment(item_key)
@@ -723,7 +723,7 @@ def main():
 
                 # Update Zotero tag
                 zotero_client.replace_tag(
-                    item_key, config.ZOTERO_TAG_TO_READ, config.ZOTERO_TAG_READ,
+                    item_key, config.ZOTERO_TAG_INBOX, config.ZOTERO_TAG_READ,
                 )
 
                 # Generate AI summaries
@@ -768,9 +768,9 @@ def main():
                 # Append to reading log
                 obsidian.append_to_reading_log(doc["title"], "Read", log_sentence)
 
-                # Move to Archive on reMarkable
+                # Move to Vault on reMarkable
                 remarkable_client.move_document(
-                    rm_name, config.RM_FOLDER_READ, config.RM_FOLDER_ARCHIVE,
+                    rm_name, config.RM_FOLDER_READ, config.RM_FOLDER_VAULT,
                 )
 
                 # Update state
@@ -785,23 +785,23 @@ def main():
                 log.exception("Failed to process read paper '%s', skipping", rm_name)
                 continue
 
-        # -- Step 2b: Poll reMarkable for skimmed papers --
-        log.info("Step 2b: Checking reMarkable for skimmed papers...")
+        # -- Step 2b: Poll reMarkable for leafed papers --
+        log.info("Step 2b: Checking reMarkable for leafed papers...")
 
-        skimmed_docs = remarkable_client.list_folder(config.RM_FOLDER_SKIMMED)
+        leafed_docs = remarkable_client.list_folder(config.RM_FOLDER_LEAFED)
 
         for doc in on_remarkable:
             rm_name = doc["remarkable_doc_name"]
 
-            if rm_name not in skimmed_docs:
+            if rm_name not in leafed_docs:
                 continue
 
-            log.info("Found skimmed paper: %s", rm_name)
+            log.info("Found leafed paper: %s", rm_name)
             item_key = doc["zotero_item_key"]
 
             try:
-                # Clean up original from To Read folder
-                obsidian.delete_to_read_pdf(doc["title"])
+                # Clean up original from Inbox folder
+                obsidian.delete_inbox_pdf(doc["title"])
 
                 # Update linked attachment (keep existing if no new PDF)
                 linked = zotero_client.get_linked_attachment(item_key)
@@ -810,13 +810,13 @@ def main():
 
                 # Update Zotero tag
                 zotero_client.replace_tag(
-                    item_key, config.ZOTERO_TAG_TO_READ, config.ZOTERO_TAG_SKIMMED,
+                    item_key, config.ZOTERO_TAG_INBOX, config.ZOTERO_TAG_LEAFED,
                 )
 
                 # Create minimal Obsidian note
                 meta = doc.get("metadata", {})
                 obsidian.ensure_dataview_note()
-                obsidian.create_skimmed_note(
+                obsidian.create_leafed_note(
                     title=doc["title"],
                     authors=doc["authors"],
                     date_added=doc["uploaded_at"],
@@ -834,30 +834,30 @@ def main():
                     zotero_client.create_obsidian_link(item_key, obsidian_uri)
 
                 # Append to reading log
-                skimmed_summary = summarizer.summarize_skimmed_paper(
+                leafed_summary = summarizer.summarize_leafed_paper(
                     doc["title"], abstract=meta.get("abstract", ""),
                 )
                 obsidian.append_to_reading_log(
-                    doc["title"], "Skimmed", skimmed_summary,
+                    doc["title"], "Leafed", leafed_summary,
                 )
 
                 # Sync note to Zotero
-                zotero_note_html = zotero_client._build_note_html(takeaway=skimmed_summary)
+                zotero_note_html = zotero_client._build_note_html(takeaway=leafed_summary)
                 zotero_client.set_note(item_key, zotero_note_html)
 
-                # Move to Archive on reMarkable
+                # Move to Vault on reMarkable
                 remarkable_client.move_document(
-                    rm_name, config.RM_FOLDER_SKIMMED, config.RM_FOLDER_ARCHIVE,
+                    rm_name, config.RM_FOLDER_LEAFED, config.RM_FOLDER_VAULT,
                 )
 
                 # Update state
-                state.mark_processed(item_key, summary=skimmed_summary, reading_status="skimmed")
+                state.mark_processed(item_key, summary=leafed_summary, reading_status="leafed")
                 state.save()
                 synced_count += 1
-                log.info("Processed (skimmed): %s", rm_name)
+                log.info("Processed (leafed): %s", rm_name)
 
             except Exception:
-                log.exception("Failed to process skimmed paper '%s', skipping", rm_name)
+                log.exception("Failed to process leafed paper '%s', skipping", rm_name)
                 continue
 
         state.touch_poll_timestamp()

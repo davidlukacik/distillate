@@ -112,7 +112,7 @@ def get_items_by_keys(keys: List[str]) -> List[Dict[str, Any]]:
 def filter_new_papers(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Filter items to only new papers (no workflow tags, not attachments/notes)."""
     skip_types = {"attachment", "note"}
-    workflow_tags = {config.ZOTERO_TAG_TO_READ, config.ZOTERO_TAG_READ, config.ZOTERO_TAG_SKIMMED}
+    workflow_tags = {config.ZOTERO_TAG_INBOX, config.ZOTERO_TAG_READ, config.ZOTERO_TAG_LEAFED}
 
     result = []
     for item in items:

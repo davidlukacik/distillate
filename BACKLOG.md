@@ -2,14 +2,14 @@
 
 ## Done
 
-- ~~Smart storage~~ — PDFs deleted from Zotero immediately after upload to reMarkable. Originals kept in Obsidian `Papers/To Read/`, annotated copies in `Papers/`. Zotero free tier is sustainable.
+- ~~Smart storage~~ — PDFs deleted from Zotero immediately after upload to reMarkable. Originals kept in Obsidian `Papers/Inbox/`, annotated copies in `Papers/`. Zotero free tier is sustainable.
 - ~~Re-process command~~ — `papers-workflow --reprocess "Paper Title"` re-runs highlight extraction + PDF rendering. Reuses cached AI summaries.
 - ~~Richer Obsidian notes~~ — DOI, abstract, journal, publication date, URL in YAML frontmatter and note body.
 - ~~Claude paper summarization~~ — AI-generated 1-2 sentence takeaway (blockquote) + paragraph summary at top of note. Cached in state to avoid redundant API calls.
-- ~~Weekly email digest~~ — `--digest` sends plain HTML email via Resend with read/skimmed papers, summaries, and direct URLs.
+- ~~Weekly email digest~~ — `--digest` sends plain HTML email via Resend with read/leafed papers, summaries, and direct URLs.
 - ~~Zotero notes sync~~ — Summary + highlights pushed to Zotero child note, searchable and visible on mobile.
 - ~~Dry run mode~~ — `--dry-run` previews what would happen without making any changes.
-- ~~Read vs Skimmed triage~~ — Papers in `/Skimmed` on reMarkable get minimal notes, different Zotero tag, shorter summaries.
+- ~~Read vs Leafed triage~~ — Papers in `Papers/Leafed` on reMarkable get minimal notes, different Zotero tag, shorter summaries.
 - ~~Obsidian deep links~~ — "Open in Obsidian" linked_url attachment in Zotero (desktop).
 - ~~Safety improvements~~ — Stale lock detection, create-then-delete ordering, try-except per document, per-paper state saves.
 - ~~Two-column highlight fix~~ — GlyphRange items sorted by y-coordinate before merging, with word deduplication at boundaries.

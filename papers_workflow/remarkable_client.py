@@ -42,10 +42,10 @@ def ensure_folders() -> None:
     # Create parent folder first, then subfolders
     _ensure_folder(config.RM_FOLDER_PAPERS)
     for folder in (
-        config.RM_FOLDER_TO_READ,
+        config.RM_FOLDER_INBOX,
         config.RM_FOLDER_READ,
-        config.RM_FOLDER_SKIMMED,
-        config.RM_FOLDER_ARCHIVE,
+        config.RM_FOLDER_LEAFED,
+        config.RM_FOLDER_VAULT,
     ):
         _ensure_folder(folder)
 

@@ -36,10 +36,10 @@ def send_weekly_digest(days: int = 7) -> None:
         return
 
     read = [p for p in papers if p.get("reading_status", "read") == "read"]
-    skimmed = [p for p in papers if p.get("reading_status") == "skimmed"]
+    leafed = [p for p in papers if p.get("reading_status") == "leafed"]
 
     subject = _build_subject()
-    body = _build_body(read, skimmed)
+    body = _build_body(read, leafed)
 
     resend.api_key = config.RESEND_API_KEY
     result = resend.Emails.send({
@@ -82,7 +82,7 @@ def _paper_html(p):
     )
 
 
-def _build_body(read, skimmed):
+def _build_body(read, leafed):
     lines = [
         "<html><body style='font-family: sans-serif; max-width: 600px; "
         "margin: 0 auto; padding: 20px; color: #333;'>",
@@ -95,10 +95,10 @@ def _build_body(read, skimmed):
             lines.append(_paper_html(p))
         lines.append("</ul>")
 
-    if skimmed:
-        lines.append("<p>I also saw the following papers:</p>")
+    if leafed:
+        lines.append("<p>I also leafed through the following papers:</p>")
         lines.append("<ul style='padding-left: 20px;'>")
-        for p in skimmed:
+        for p in leafed:
             lines.append(_paper_html(p))
         lines.append("</ul>")
 
