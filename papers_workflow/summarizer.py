@@ -40,8 +40,8 @@ def summarize_read_paper(
         f"1. A paragraph (3-4 sentences) for the top of my note. State the key "
         f"idea directly as fact — never start with 'this paper' or 'the authors'. "
         f"Include specific methods, results, or numbers where possible.\n"
-        f"2. The core idea in one sentence (two short ones max). Focus on the single "
-        f"most important takeaway — don't rephrase it a second way. Never start "
+        f"2. The core idea in ONE punchy sentence (25 words max). Focus on the single "
+        f"most important takeaway — don't rephrase or elaborate. Never start "
         f"with 'the paper' or 'this study'. Just state the idea directly.\n\n"
         f"Format:\n[paragraph]\n---\n[sentences]"
     )

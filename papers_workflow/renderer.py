@@ -8,6 +8,7 @@ annotations.
 import io
 import json
 import logging
+import re
 import zipfile
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -296,6 +297,32 @@ def _join_dedup(parts: List[str]) -> str:
     return result
 
 
+def _clean_highlight_text(text: str) -> str:
+    """Clean up OCR artifacts from reMarkable highlight text."""
+    # Strip superscript citation markers: (p1), (p2), (1), (23), etc.
+    text = re.sub(r'\(p?\d+\)', '', text)
+
+    # Clean punctuation artifacts from citation removal
+    text = re.sub(r',\s*,', ',', text)       # ",," → ","
+    text = re.sub(r';\s*;', ';', text)       # ";;" → ";"
+    text = re.sub(r',(\s*and\b)', r'\1', text)  # ", and" after removed citation
+
+    # Insert space after sentence-ending punctuation followed by a letter
+    text = re.sub(r'([.;!?])([A-Za-z])', r'\1 \2', text)
+
+    # Insert space after comma followed directly by a letter
+    text = re.sub(r',([A-Za-z])', r', \1', text)
+
+    # Fix broken line-wrap joins: lowercase followed by uppercase mid-sentence
+    # e.g. "operationsWe" → "operations We" (but preserve acronyms like "GenAI")
+    text = re.sub(r'([a-z]{2})([A-Z][a-z])', r'\1 \2', text)
+
+    # Collapse multiple spaces
+    text = re.sub(r' {2,}', ' ', text)
+
+    return text.strip()
+
+
 def _extract_raw_glyphs(
     rm_data: bytes,
 ) -> List[Tuple[str, float | None, int]]:
@@ -345,10 +372,10 @@ def _merge_glyphs(
         if same_passage:
             current_parts.append(text)
         else:
-            passages.append(_join_dedup(current_parts))
+            passages.append(_clean_highlight_text(_join_dedup(current_parts)))
             current_parts = [text]
         prev_y = y
         prev_color = color
 
-    passages.append(_join_dedup(current_parts))
+    passages.append(_clean_highlight_text(_join_dedup(current_parts)))
     return passages
