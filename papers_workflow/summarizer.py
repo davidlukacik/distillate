@@ -1,7 +1,7 @@
 """AI-powered paper summarization using Claude."""
 
 import logging
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from papers_workflow import config
 
@@ -120,6 +120,97 @@ def extract_tags(title: str, abstract: str = "") -> Tuple[List[str], str]:
             paper_type = line[5:].strip()
 
     return tags, paper_type
+
+
+_HIGHLIGHT_CATEGORIES = [
+    "Key Findings",
+    "Methods",
+    "Limitations",
+    "Future Work",
+    "Background",
+]
+
+
+def classify_highlights(
+    title: str,
+    abstract: str,
+    highlights: List[str],
+) -> Dict[str, List[str]]:
+    """Classify highlights into categories using Claude.
+
+    Returns a dict mapping category names to lists of highlight strings.
+    Falls back to {"Highlights": highlights} if classification fails.
+    """
+    if not config.ANTHROPIC_API_KEY or not highlights:
+        return {"Highlights": highlights} if highlights else {}
+
+    numbered = "\n".join(f"{i+1}. \"{h}\"" for i, h in enumerate(highlights))
+
+    prompt = (
+        f"Classify each numbered highlight into exactly one category:\n"
+        f"- Key Findings: main results, conclusions, discoveries\n"
+        f"- Methods: techniques, approaches, experimental design\n"
+        f"- Limitations: weaknesses, caveats, constraints\n"
+        f"- Future Work: open questions, next steps\n"
+        f"- Background: context, prior work, definitions\n\n"
+        f"Paper: {title}\n"
+    )
+    if abstract:
+        prompt += f"Abstract: {abstract[:500]}\n"
+    prompt += (
+        f"\nHighlights:\n{numbered}\n\n"
+        f"Return ONLY category names followed by their numbers, like:\n"
+        f"Key Findings: 1, 5\nMethods: 2\n(omit empty categories)"
+    )
+
+    result = _call_claude(prompt, max_tokens=200)
+    if not result:
+        return {"Highlights": highlights}
+
+    return _parse_classification(result, highlights)
+
+
+def _parse_classification(
+    result: str, highlights: List[str],
+) -> Dict[str, List[str]]:
+    """Parse Claude's classification response into a categorized dict."""
+    classified: Dict[str, List[str]] = {}
+    assigned: set = set()
+
+    for line in result.strip().split("\n"):
+        line = line.strip()
+        if not line or ":" not in line:
+            continue
+
+        category, numbers_str = line.split(":", 1)
+        category = category.strip()
+
+        # Match to known categories (case-insensitive)
+        matched_cat = None
+        for known in _HIGHLIGHT_CATEGORIES:
+            if category.lower() == known.lower():
+                matched_cat = known
+                break
+        if not matched_cat:
+            continue
+
+        # Parse numbers
+        for token in numbers_str.split(","):
+            token = token.strip()
+            try:
+                idx = int(token) - 1  # Convert to 0-based
+                if 0 <= idx < len(highlights) and idx not in assigned:
+                    classified.setdefault(matched_cat, []).append(highlights[idx])
+                    assigned.add(idx)
+            except ValueError:
+                continue
+
+    # Any unclassified highlights go under "Other"
+    for i, h in enumerate(highlights):
+        if i not in assigned:
+            classified.setdefault("Other", []).append(h)
+
+    return classified if classified else {"Highlights": highlights}
 
 
 def suggest_papers(

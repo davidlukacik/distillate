@@ -8,7 +8,7 @@ import logging
 import shutil
 from datetime import date
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional, Union
 from urllib.parse import quote
 
 from papers_workflow import config
@@ -175,12 +175,37 @@ def ensure_dataview_note() -> None:
         log.info("Created Dataview note: %s", dataview_path)
 
 
+def _render_highlights_md(
+    highlights: Optional[Union[List[str], Dict[str, List[str]]]],
+) -> str:
+    """Render highlights as markdown.
+
+    Accepts either a flat list (legacy) or a categorized dict.
+    """
+    if not highlights:
+        return "*No highlights extracted.*"
+
+    # Flat list — single section
+    if isinstance(highlights, list):
+        return "\n".join(f"- \"{h}\"" for h in highlights)
+
+    # Categorized dict — sub-headers per category
+    if len(highlights) == 1 and "Highlights" in highlights:
+        return "\n".join(f"- \"{h}\"" for h in highlights["Highlights"])
+
+    sections = []
+    for category, items in highlights.items():
+        sections.append(f"### {category}\n")
+        sections.append("\n".join(f"- \"{h}\"" for h in items))
+    return "\n\n".join(sections)
+
+
 def create_paper_note(
     title: str,
     authors: List[str],
     date_added: str,
     zotero_item_key: str,
-    highlights: Optional[List[str]] = None,
+    highlights: Optional[Union[List[str], Dict[str, List[str]]]] = None,
     pdf_filename: Optional[str] = None,
     doi: str = "",
     abstract: str = "",
@@ -217,10 +242,7 @@ def create_paper_note(
     tags_yaml = "\n".join(f"  - {t}" for t in all_tags)
 
     # Build highlights section
-    if highlights:
-        highlights_md = "\n".join(f"- \"{h}\"" for h in highlights)
-    else:
-        highlights_md = "*No highlights extracted.*"
+    highlights_md = _render_highlights_md(highlights)
 
     # Optional frontmatter lines
     optional = ""

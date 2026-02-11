@@ -103,6 +103,13 @@ def _reprocess(args: list[str]) -> None:
                     title, abstract=meta.get("abstract", ""), highlights=highlights,
                 )
 
+            # Classify highlights into categories
+            classified = None
+            if highlights:
+                classified = summarizer.classify_highlights(
+                    title, meta.get("abstract", ""), highlights,
+                )
+
             # Recreate Obsidian note (delete existing first)
             obsidian.ensure_dataview_note()
             obsidian.delete_paper_note(title)
@@ -111,7 +118,7 @@ def _reprocess(args: list[str]) -> None:
                 authors=doc["authors"],
                 date_added=doc["uploaded_at"],
                 zotero_item_key=item_key,
-                highlights=highlights or None,
+                highlights=classified,
                 pdf_filename=pdf_filename,
                 doi=meta.get("doi", ""),
                 abstract=meta.get("abstract", ""),
@@ -132,7 +139,7 @@ def _reprocess(args: list[str]) -> None:
 
             # Sync note to Zotero
             zotero_note_html = zotero_client._build_note_html(
-                takeaway=log_sentence, summary=note_summary, highlights=highlights,
+                takeaway=log_sentence, summary=note_summary, highlights=classified,
             )
             zotero_client.set_note(item_key, zotero_note_html)
 
@@ -774,7 +781,7 @@ def main():
                     item_key, config.ZOTERO_TAG_INBOX, config.ZOTERO_TAG_READ,
                 )
 
-                # Generate AI summaries
+                # Generate AI summaries (uses flat highlights)
                 meta = doc.get("metadata", {})
                 note_summary, log_sentence = summarizer.summarize_read_paper(
                     doc["title"],
@@ -782,14 +789,21 @@ def main():
                     highlights=highlights,
                 )
 
-                # Create Obsidian note with extracted highlights
+                # Classify highlights into categories
+                classified = None
+                if highlights:
+                    classified = summarizer.classify_highlights(
+                        doc["title"], meta.get("abstract", ""), highlights,
+                    )
+
+                # Create Obsidian note with classified highlights
                 obsidian.ensure_dataview_note()
                 obsidian.create_paper_note(
                     title=doc["title"],
                     authors=doc["authors"],
                     date_added=doc["uploaded_at"],
                     zotero_item_key=item_key,
-                    highlights=highlights or None,
+                    highlights=classified,
                     pdf_filename=pdf_filename,
                     doi=meta.get("doi", ""),
                     abstract=meta.get("abstract", ""),
@@ -811,7 +825,7 @@ def main():
                 # Sync note to Zotero
                 zotero_note_html = zotero_client._build_note_html(
                     takeaway=log_sentence, summary=note_summary,
-                    highlights=highlights,
+                    highlights=classified,
                 )
                 zotero_client.set_note(item_key, zotero_note_html)
 

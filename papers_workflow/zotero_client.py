@@ -5,7 +5,7 @@ Handles polling for new items, downloading/uploading PDFs, and managing tags.
 
 import logging
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 
@@ -335,7 +335,7 @@ def set_note(parent_key: str, html_content: str) -> Optional[str]:
 def _build_note_html(
     takeaway: str = "",
     summary: str = "",
-    highlights: Optional[List[str]] = None,
+    highlights: Optional[Union[List[str], Dict[str, List[str]]]] = None,
 ) -> str:
     """Build HTML content for a Zotero note from summaries and highlights."""
     parts = []
@@ -344,9 +344,22 @@ def _build_note_html(
     if summary:
         parts.append(f"<p>{summary}</p>")
     if highlights:
-        parts.append("<h2>Highlights</h2>")
-        for h in highlights:
-            parts.append(f"<p>&ldquo;{h}&rdquo;</p>")
+        if isinstance(highlights, list):
+            # Flat list
+            parts.append("<h2>Highlights</h2>")
+            for h in highlights:
+                parts.append(f"<p>&ldquo;{h}&rdquo;</p>")
+        elif isinstance(highlights, dict):
+            # Categorized
+            if len(highlights) == 1 and "Highlights" in highlights:
+                parts.append("<h2>Highlights</h2>")
+                for h in highlights["Highlights"]:
+                    parts.append(f"<p>&ldquo;{h}&rdquo;</p>")
+            else:
+                for category, items in highlights.items():
+                    parts.append(f"<h2>{category}</h2>")
+                    for h in items:
+                        parts.append(f"<p>&ldquo;{h}&rdquo;</p>")
     return "\n".join(parts)
 
 
