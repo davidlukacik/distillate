@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import sys
@@ -71,3 +72,13 @@ STATE_GIST_ID: str = os.environ.get("STATE_GIST_ID", "").strip()
 
 HTTP_TIMEOUT: int = int(os.environ.get("HTTP_TIMEOUT", "30"))
 LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO").strip().upper()
+CLAUDE_MODEL: str = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001").strip()
+
+
+def setup_logging() -> None:
+    """Configure logging for the workflow. Call once at each entry point."""
+    logging.basicConfig(
+        level=getattr(logging, LOG_LEVEL, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )

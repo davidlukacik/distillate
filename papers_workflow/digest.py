@@ -14,11 +14,7 @@ log = logging.getLogger(__name__)
 
 def send_weekly_digest(days: int = 7) -> None:
     """Compile and send a digest of papers processed in the last N days."""
-    logging.basicConfig(
-        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    config.setup_logging()
 
     if not config.RESEND_API_KEY:
         log.error("RESEND_API_KEY not set, cannot send digest")
@@ -108,11 +104,7 @@ def _build_body(read, leafed):
 
 def send_suggestion() -> None:
     """Send a daily email suggesting 3 papers to read next."""
-    logging.basicConfig(
-        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    config.setup_logging()
 
     if not config.RESEND_API_KEY:
         log.error("RESEND_API_KEY not set, cannot send suggestion")

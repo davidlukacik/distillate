@@ -24,11 +24,7 @@ def _reprocess(args: list[str]) -> None:
     from papers_workflow import zotero_client
     from papers_workflow.state import State
 
-    logging.basicConfig(
-        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    config.setup_logging()
 
     state = State()
     processed = state.documents_with_status("processed")
@@ -157,11 +153,7 @@ def _dry_run() -> None:
     from papers_workflow import remarkable_client
     from papers_workflow.state import State
 
-    logging.basicConfig(
-        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    config.setup_logging()
 
     log.info("=== DRY RUN — no changes will be made ===")
     state = State()
@@ -240,11 +232,7 @@ def _backfill_tags() -> None:
     from papers_workflow import zotero_client
     from papers_workflow.state import State
 
-    logging.basicConfig(
-        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    config.setup_logging()
 
     state = State()
     count = 0
@@ -286,11 +274,7 @@ def _sync_state() -> None:
 
     from papers_workflow import config
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    config.setup_logging()
 
     gist_id = config.STATE_GIST_ID
     if not gist_id:
@@ -318,11 +302,7 @@ def _promote() -> None:
     from papers_workflow import summarizer
     from papers_workflow.state import State
 
-    logging.basicConfig(
-        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    config.setup_logging()
 
     state = State()
 
@@ -452,12 +432,7 @@ def main():
     from papers_workflow import summarizer
     from papers_workflow.state import State, acquire_lock, release_lock
 
-    # Setup logging
-    logging.basicConfig(
-        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    config.setup_logging()
 
     # Prevent overlapping runs
     if not acquire_lock():
@@ -841,10 +816,12 @@ def main():
                 if obsidian_uri:
                     zotero_client.create_obsidian_link(item_key, obsidian_uri)
 
-                # Append to reading log
+                # Generate leafed summary
                 leafed_summary = summarizer.summarize_leafed_paper(
                     doc["title"], abstract=meta.get("abstract", ""),
                 )
+
+                # Append to reading log
                 obsidian.append_to_reading_log(
                     doc["title"], "Leafed", leafed_summary,
                 )
