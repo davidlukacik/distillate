@@ -1,10 +1,12 @@
 """Semantic Scholar API integration.
 
-Looks up papers by DOI (preferred) or title to fetch citation counts
-and recommended related papers. Free API, no key needed.
+Looks up papers by DOI or arXiv ID (preferred), falls back to title search.
+Fetches citation counts and recommended related papers. Free API, no key needed.
 """
 
 import logging
+import re
+import time
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -17,18 +19,37 @@ _BASE = "https://api.semanticscholar.org"
 _PAPER_FIELDS = "citationCount,influentialCitationCount,url,paperId"
 _REC_FIELDS = "title,externalIds,year,url"
 
+# Delay between API calls to avoid rate limits (free tier: ~1 req/sec)
+_REQUEST_DELAY = 1.5
 
-def lookup_paper(doi: str = "", title: str = "") -> Optional[Dict[str, Any]]:
+# Match arXiv IDs in DOIs or URLs
+_ARXIV_DOI_RE = re.compile(r"10\.48550/arXiv\.(\d+\.\d+)")
+_ARXIV_URL_RE = re.compile(r"arxiv\.org/(?:abs|pdf)/(\d+\.\d+)")
+
+
+def lookup_paper(
+    doi: str = "", title: str = "", url: str = "",
+) -> Optional[Dict[str, Any]]:
     """Look up a paper on Semantic Scholar.
 
-    Tries DOI first, falls back to title search.
-    Returns None if the paper can't be found or the API fails.
+    Tries arXiv ID first (extracted from DOI or URL), then publisher DOI,
+    then title search. Returns None if the paper can't be found.
     """
     paper = None
-    if doi:
-        paper = _fetch_by_doi(doi)
+
+    # Try arXiv ID first (extracted from DOI or URL)
+    arxiv_id = _extract_arxiv_id(doi, url)
+    if arxiv_id:
+        paper = _fetch_by_id(f"ARXIV:{arxiv_id}")
+
+    # Try publisher DOI (skip arXiv meta-DOIs)
+    if paper is None and doi and not doi.startswith("10.48550/"):
+        paper = _fetch_by_id(f"DOI:{doi}")
+
+    # Fall back to title search
     if paper is None and title:
         paper = _fetch_by_title(title)
+
     if paper is None:
         return None
 
@@ -47,25 +68,45 @@ def lookup_paper(doi: str = "", title: str = "") -> Optional[Dict[str, Any]]:
     }
 
 
-def _fetch_by_doi(doi: str) -> Optional[Dict[str, Any]]:
-    """Fetch paper metadata by DOI."""
+def _extract_arxiv_id(doi: str, url: str) -> str:
+    """Extract arXiv ID from a DOI or URL, or return empty string."""
+    if doi:
+        m = _ARXIV_DOI_RE.search(doi)
+        if m:
+            return m.group(1)
+    if url:
+        m = _ARXIV_URL_RE.search(url)
+        if m:
+            return m.group(1)
+    return ""
+
+
+def _fetch_by_id(paper_id: str) -> Optional[Dict[str, Any]]:
+    """Fetch paper metadata by S2 paper identifier (DOI:xxx or ARXIV:xxx)."""
     try:
+        time.sleep(_REQUEST_DELAY)
         resp = requests.get(
-            f"{_BASE}/graph/v1/paper/DOI:{doi}",
+            f"{_BASE}/graph/v1/paper/{paper_id}",
             params={"fields": _PAPER_FIELDS},
             timeout=config.HTTP_TIMEOUT,
         )
         if resp.status_code == 200:
             return resp.json()
-        log.debug("S2 DOI lookup returned %d for %s", resp.status_code, doi)
+        if resp.status_code == 429:
+            return _retry_on_429(
+                f"{_BASE}/graph/v1/paper/{paper_id}",
+                {"fields": _PAPER_FIELDS},
+            )
+        log.debug("S2 lookup returned %d for %s", resp.status_code, paper_id)
     except Exception:
-        log.debug("S2 DOI lookup failed for %s", doi, exc_info=True)
+        log.debug("S2 lookup failed for %s", paper_id, exc_info=True)
     return None
 
 
 def _fetch_by_title(title: str) -> Optional[Dict[str, Any]]:
     """Fetch paper metadata by title search (first result)."""
     try:
+        time.sleep(_REQUEST_DELAY)
         resp = requests.get(
             f"{_BASE}/graph/v1/paper/search",
             params={"query": title, "limit": 1, "fields": _PAPER_FIELDS},
@@ -76,6 +117,16 @@ def _fetch_by_title(title: str) -> Optional[Dict[str, Any]]:
             papers = data.get("data", [])
             if papers:
                 return papers[0]
+        if resp.status_code == 429:
+            result = _retry_on_429(
+                f"{_BASE}/graph/v1/paper/search",
+                {"query": title, "limit": 1, "fields": _PAPER_FIELDS},
+            )
+            if result:
+                papers = result.get("data", [])
+                if papers:
+                    return papers[0]
+            return None
         log.debug("S2 title search returned %d for '%s'", resp.status_code, title)
     except Exception:
         log.debug("S2 title search failed for '%s'", title, exc_info=True)
@@ -85,6 +136,7 @@ def _fetch_by_title(title: str) -> Optional[Dict[str, Any]]:
 def _fetch_recommendations(paper_id: str) -> List[Dict[str, str]]:
     """Fetch up to 5 recommended papers."""
     try:
+        time.sleep(_REQUEST_DELAY)
         resp = requests.get(
             f"{_BASE}/recommendations/v1/papers/forpaper/{paper_id}",
             params={"fields": _REC_FIELDS, "limit": 5},
@@ -107,3 +159,21 @@ def _fetch_recommendations(paper_id: str) -> List[Dict[str, str]]:
     except Exception:
         log.debug("S2 recommendations failed for %s", paper_id, exc_info=True)
         return []
+
+
+def _retry_on_429(url: str, params: dict, retries: int = 3) -> Optional[Any]:
+    """Retry a request with exponential backoff on 429."""
+    for attempt in range(retries):
+        delay = 5 * (2 ** attempt)  # 5s, 10s, 20s
+        log.debug("S2 rate limited, retrying in %ds (attempt %d/%d)", delay, attempt + 1, retries)
+        time.sleep(delay)
+        try:
+            resp = requests.get(url, params=params, timeout=config.HTTP_TIMEOUT)
+            if resp.status_code == 200:
+                return resp.json()
+            if resp.status_code != 429:
+                return None
+        except Exception:
+            return None
+    log.debug("S2 rate limit retries exhausted")
+    return None

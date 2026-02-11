@@ -292,7 +292,8 @@ def _backfill_s2() -> None:
 
     for key, doc in state.documents.items():
         meta = doc.get("metadata", {})
-        if "citation_count" in meta:
+        # Skip papers already enriched (have s2_url = actually found on S2)
+        if meta.get("s2_url"):
             continue
 
         # Fetch metadata from Zotero if missing DOI
@@ -304,6 +305,7 @@ def _backfill_s2() -> None:
 
         s2_data = semantic_scholar.lookup_paper(
             doi=meta.get("doi", ""), title=doc["title"],
+            url=meta.get("url", ""),
         )
         if s2_data:
             meta["citation_count"] = s2_data["citation_count"]
@@ -315,8 +317,6 @@ def _backfill_s2() -> None:
                 doc["title"], s2_data["citation_count"],
             )
         else:
-            # Mark as looked up (0 citations) to avoid re-querying
-            meta["citation_count"] = 0
             log.info("S2: no data found for '%s'", doc["title"])
 
         doc["metadata"] = meta
@@ -749,6 +749,7 @@ def main():
                             try:
                                 s2_data = semantic_scholar.lookup_paper(
                                     doi=meta.get("doi", ""), title=title,
+                                    url=meta.get("url", ""),
                                 )
                                 if s2_data:
                                     meta["citation_count"] = s2_data["citation_count"]
