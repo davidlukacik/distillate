@@ -488,6 +488,44 @@ def get_obsidian_uri(title: str, subfolder: str = "Read") -> Optional[str]:
     return f"obsidian://open?vault={quote(config.OBSIDIAN_VAULT_NAME)}&file={quote(file_path)}"
 
 
+def _themes_dir() -> Optional[Path]:
+    """Return the Themes subdirectory in the papers folder, or None if unconfigured."""
+    d = _papers_dir()
+    if d is None:
+        return None
+    td = d / "Themes"
+    td.mkdir(parents=True, exist_ok=True)
+    return td
+
+
+def create_themes_note(month: str, content: str) -> Optional[Path]:
+    """Create a monthly themes note in Papers/Themes/.
+
+    month should be like '2026-02'. Returns the path, or None if unconfigured.
+    """
+    td = _themes_dir()
+    if td is None:
+        return None
+
+    note_path = td / f"{month}.md"
+
+    themes_content = f"""\
+---
+tags:
+  - themes
+  - monthly-review
+month: {month}
+---
+
+# Research Themes — {month}
+
+{content}
+"""
+    note_path.write_text(themes_content)
+    log.info("Created themes note: %s", note_path)
+    return note_path
+
+
 def _sanitize_note_name(name: str) -> str:
     """Sanitize a string for use as an Obsidian note filename."""
     bad_chars = '<>:"/\\|?*#^[]'

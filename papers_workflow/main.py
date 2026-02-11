@@ -326,6 +326,83 @@ def _backfill_s2() -> None:
     log.info("Backfilled S2 data for %d paper(s)", count)
 
 
+def _themes(args: list[str]) -> None:
+    """Generate a monthly research themes synthesis."""
+    from datetime import datetime, timedelta, timezone
+
+    from papers_workflow import config
+    from papers_workflow import digest
+    from papers_workflow import obsidian
+    from papers_workflow import summarizer
+    from papers_workflow.state import State
+
+    config.setup_logging()
+
+    # Determine target month
+    if args:
+        month = args[0]  # e.g. "2026-02"
+    else:
+        # Default to previous month
+        last_month = datetime.now(timezone.utc).replace(day=1) - timedelta(days=1)
+        month = last_month.strftime("%Y-%m")
+
+    log.info("Generating themes for %s...", month)
+
+    # Gather papers processed in the target month
+    state = State()
+    # Use first and last day of month as range
+    month_start = f"{month}-01T00:00:00"
+    # Get next month for the upper bound
+    year, mon = int(month[:4]), int(month[5:7])
+    if mon == 12:
+        next_month = f"{year + 1}-01-01T00:00:00"
+    else:
+        next_month = f"{year}-{mon + 1:02d}-01T00:00:00"
+
+    all_processed = state.documents_processed_since(month_start)
+    papers = [
+        p for p in all_processed
+        if (p.get("processed_at") or "") < next_month
+    ]
+
+    if not papers:
+        log.info("No papers processed in %s", month)
+        return
+
+    log.info("Found %d papers for %s", len(papers), month)
+
+    # Build enriched list for synthesis
+    enriched = []
+    for doc in papers:
+        meta = doc.get("metadata", {})
+        enriched.append({
+            "title": doc["title"],
+            "tags": meta.get("tags", []),
+            "summary": doc.get("summary", ""),
+            "reading_status": doc.get("reading_status", "read"),
+            "paper_type": meta.get("paper_type", ""),
+        })
+
+    # Generate themes
+    themes_text = summarizer.generate_monthly_themes(month, enriched)
+    if not themes_text:
+        log.warning("Could not generate themes for %s", month)
+        return
+
+    # Write Obsidian note
+    note_path = obsidian.create_themes_note(month, themes_text)
+    if note_path:
+        log.info("Themes note: %s", note_path)
+    else:
+        # Print to stdout if Obsidian unconfigured
+        print(f"\n# Research Themes — {month}\n\n{themes_text}")
+
+    # Send email
+    digest.send_themes_email(month, themes_text)
+
+    log.info("Done generating themes for %s", month)
+
+
 def _sync_state() -> None:
     """Upload state.json to a private GitHub Gist for GitHub Actions."""
     import subprocess
@@ -479,6 +556,11 @@ def main():
 
     if "--promote" in sys.argv:
         _promote()
+        return
+
+    if "--themes" in sys.argv:
+        idx = sys.argv.index("--themes")
+        _themes(sys.argv[idx + 1:])
         return
 
     if "--sync-state" in sys.argv:

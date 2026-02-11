@@ -164,6 +164,39 @@ def send_suggestion() -> None:
     log.info("Sent suggestion to %s: %s", config.DIGEST_TO, send_result)
 
 
+def send_themes_email(month: str, themes_text: str) -> None:
+    """Send a monthly research themes email."""
+    config.setup_logging()
+
+    if not config.RESEND_API_KEY:
+        log.error("RESEND_API_KEY not set, cannot send themes email")
+        return
+    if not config.DIGEST_TO:
+        log.error("DIGEST_TO not set, cannot send themes email")
+        return
+
+    # Convert markdown paragraphs to HTML
+    paragraphs = themes_text.strip().split("\n\n")
+    body_html = "\n".join(f"<p>{p.strip()}</p>" for p in paragraphs if p.strip())
+
+    html = (
+        "<html><body style='font-family: sans-serif; max-width: 600px; "
+        "margin: 0 auto; padding: 20px; color: #333;'>"
+        f"<h1>Research Themes \u2014 {month}</h1>"
+        f"{body_html}"
+        "</body></html>"
+    )
+
+    resend.api_key = config.RESEND_API_KEY
+    result = resend.Emails.send({
+        "from": config.DIGEST_FROM,
+        "to": [config.DIGEST_TO],
+        "subject": f"Research themes \u2014 {month}",
+        "html": html,
+    })
+    log.info("Sent themes email to %s: %s", config.DIGEST_TO, result)
+
+
 def _build_suggestion_body(suggestion_text, unread):
     """Build HTML body from Claude's suggestion text."""
     # Parse numbered suggestions and add URLs

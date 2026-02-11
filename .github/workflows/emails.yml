@@ -6,6 +6,8 @@ on:
     - cron: '0 13 * * *'
     # Weekly digest on Sunday at 9am ET (2pm UTC)
     - cron: '0 14 * * 0'
+    # Monthly themes on 1st at 10am ET (3pm UTC)
+    - cron: '0 15 1 * *'
   workflow_dispatch:
     inputs:
       command:
@@ -16,6 +18,7 @@ on:
         options:
           - '--suggest'
           - '--digest'
+          - '--themes'
 
 jobs:
   send-email:
@@ -46,6 +49,8 @@ jobs:
             echo "args=${{ inputs.command }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event.schedule }}" = "0 14 * * 0" ]; then
             echo "args=--digest" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 15 1 * *" ]; then
+            echo "args=--themes" >> "$GITHUB_OUTPUT"
           else
             echo "args=--suggest" >> "$GITHUB_OUTPUT"
           fi
