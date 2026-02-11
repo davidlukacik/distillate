@@ -190,6 +190,8 @@ def create_paper_note(
     summary: str = "",
     takeaway: str = "",
     topic_tags: Optional[List[str]] = None,
+    citation_count: int = 0,
+    related_papers: Optional[List[dict]] = None,
 ) -> Optional[Path]:
     """Create an Obsidian note for a read paper in the Read subfolder.
 
@@ -230,6 +232,8 @@ def create_paper_note(
         optional += f'\npublication_date: "{publication_date}"'
     if url:
         optional += f'\nurl: "{_escape_yaml(url)}"'
+    if citation_count:
+        optional += f"\ncitation_count: {citation_count}"
     pdf_yaml = f'\npdf: "[[{pdf_filename}]]"' if pdf_filename else ""
 
     # Optional PDF embed in note body
@@ -244,6 +248,22 @@ def create_paper_note(
         abstract_md = f"## Abstract\n\n> {abstract}\n\n"
     else:
         abstract_md = ""
+
+    # Related papers section
+    if related_papers:
+        related_lines = []
+        for rp in related_papers:
+            rp_title = rp.get("title", "")
+            rp_year = rp.get("year") or ""
+            rp_url = rp.get("url", "")
+            year_str = f" ({rp_year})" if rp_year else ""
+            if rp_url:
+                related_lines.append(f"- [{rp_title}]({rp_url}){year_str}")
+            else:
+                related_lines.append(f"- {rp_title}{year_str}")
+        related_md = "## Related Papers\n\n" + "\n".join(related_lines) + "\n\n"
+    else:
+        related_md = ""
 
     content = f"""\
 ---
@@ -262,7 +282,8 @@ tags:
 {takeaway_md}{summary_md}{pdf_embed}{abstract_md}## Highlights
 
 {highlights_md}
-"""
+
+{related_md}"""
     note_path.write_text(content)
     log.info("Created Obsidian note: %s", note_path)
     return note_path
@@ -279,6 +300,7 @@ def create_leafed_note(
     publication_date: str = "",
     journal: str = "",
     topic_tags: Optional[List[str]] = None,
+    citation_count: int = 0,
 ) -> Optional[Path]:
     """Create a minimal Obsidian note for a leafed-through paper in the Leafed subfolder."""
     ld = _leafed_dir()
@@ -307,6 +329,8 @@ def create_leafed_note(
         optional += f'\npublication_date: "{publication_date}"'
     if url:
         optional += f'\nurl: "{_escape_yaml(url)}"'
+    if citation_count:
+        optional += f"\ncitation_count: {citation_count}"
     pdf_yaml = f'\npdf: "[[{pdf_filename}]]"' if pdf_filename else ""
     pdf_embed = f"![[{pdf_filename}]]\n\n" if pdf_filename else ""
 

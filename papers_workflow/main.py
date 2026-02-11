@@ -121,6 +121,8 @@ def _reprocess(args: list[str]) -> None:
                 summary=note_summary,
                 takeaway=log_sentence,
                 topic_tags=meta.get("tags"),
+                citation_count=meta.get("citation_count", 0),
+                related_papers=meta.get("related_papers"),
             )
 
             # Add Obsidian deep link in Zotero
@@ -268,6 +270,54 @@ def _backfill_tags() -> None:
     log.info("Backfilled tags for %d paper(s)", count)
 
 
+def _backfill_s2() -> None:
+    """Backfill Semantic Scholar data for papers that don't have it yet."""
+    from papers_workflow import config
+    from papers_workflow import semantic_scholar
+    from papers_workflow import zotero_client
+    from papers_workflow.state import State
+
+    config.setup_logging()
+
+    state = State()
+    count = 0
+
+    for key, doc in state.documents.items():
+        meta = doc.get("metadata", {})
+        if "citation_count" in meta:
+            continue
+
+        # Fetch metadata from Zotero if missing DOI
+        if not meta.get("doi"):
+            items = zotero_client.get_items_by_keys([key])
+            if items:
+                meta = zotero_client.extract_metadata(items[0])
+                doc["metadata"] = meta
+
+        s2_data = semantic_scholar.lookup_paper(
+            doi=meta.get("doi", ""), title=doc["title"],
+        )
+        if s2_data:
+            meta["citation_count"] = s2_data["citation_count"]
+            meta["influential_citation_count"] = s2_data["influential_citation_count"]
+            meta["s2_url"] = s2_data["s2_url"]
+            meta["related_papers"] = s2_data["related_papers"]
+            log.info(
+                "S2 enriched '%s': %d citations",
+                doc["title"], s2_data["citation_count"],
+            )
+        else:
+            # Mark as looked up (0 citations) to avoid re-querying
+            meta["citation_count"] = 0
+            log.info("S2: no data found for '%s'", doc["title"])
+
+        doc["metadata"] = meta
+        state.save()
+        count += 1
+
+    log.info("Backfilled S2 data for %d paper(s)", count)
+
+
 def _sync_state() -> None:
     """Upload state.json to a private GitHub Gist for GitHub Actions."""
     import subprocess
@@ -410,6 +460,10 @@ def main():
         _backfill_tags()
         return
 
+    if "--backfill-s2" in sys.argv:
+        _backfill_s2()
+        return
+
     if "--suggest" in sys.argv:
         from papers_workflow import digest
         digest.send_suggestion()
@@ -429,6 +483,7 @@ def main():
     from papers_workflow import obsidian
     from papers_workflow import notify
     from papers_workflow import renderer
+    from papers_workflow import semantic_scholar
     from papers_workflow import summarizer
     from papers_workflow.state import State, acquire_lock, release_lock
 
@@ -600,6 +655,24 @@ def main():
                             if paper_type:
                                 meta["paper_type"] = paper_type
 
+                            # Semantic Scholar enrichment
+                            try:
+                                s2_data = semantic_scholar.lookup_paper(
+                                    doi=meta.get("doi", ""), title=title,
+                                )
+                                if s2_data:
+                                    meta["citation_count"] = s2_data["citation_count"]
+                                    meta["influential_citation_count"] = s2_data["influential_citation_count"]
+                                    meta["s2_url"] = s2_data["s2_url"]
+                                    meta["related_papers"] = s2_data["related_papers"]
+                                    log.info(
+                                        "S2: %d citations, %d related papers",
+                                        s2_data["citation_count"],
+                                        len(s2_data["related_papers"]),
+                                    )
+                            except Exception:
+                                log.debug("S2 lookup failed for '%s'", title, exc_info=True)
+
                             # Tag in Zotero
                             zotero_client.add_tag(item_key, config.ZOTERO_TAG_INBOX)
 
@@ -726,6 +799,8 @@ def main():
                     summary=note_summary,
                     takeaway=log_sentence,
                     topic_tags=meta.get("tags"),
+                    citation_count=meta.get("citation_count", 0),
+                    related_papers=meta.get("related_papers"),
                 )
 
                 # Add Obsidian deep link in Zotero
@@ -809,6 +884,7 @@ def main():
                     publication_date=meta.get("publication_date", ""),
                     journal=meta.get("journal", ""),
                     topic_tags=meta.get("tags"),
+                    citation_count=meta.get("citation_count", 0),
                 )
 
                 # Add Obsidian deep link in Zotero
