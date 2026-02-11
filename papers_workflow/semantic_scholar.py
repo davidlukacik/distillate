@@ -1,13 +1,13 @@
 """Semantic Scholar API integration.
 
 Looks up papers by DOI or arXiv ID (preferred), falls back to title search.
-Fetches citation counts and recommended related papers. Free API, no key needed.
+Fetches citation counts. Free API, no key needed.
 """
 
 import logging
 import re
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import requests
 
@@ -16,8 +16,7 @@ from papers_workflow import config
 log = logging.getLogger(__name__)
 
 _BASE = "https://api.semanticscholar.org"
-_PAPER_FIELDS = "citationCount,influentialCitationCount,url,paperId"
-_REC_FIELDS = "title,externalIds,year,url"
+_PAPER_FIELDS = "citationCount,influentialCitationCount,url"
 
 # Delay between API calls to avoid rate limits (free tier: ~1 req/sec)
 _REQUEST_DELAY = 1.5
@@ -56,15 +55,11 @@ def lookup_paper(
     citation_count = paper.get("citationCount") or 0
     influential = paper.get("influentialCitationCount") or 0
     s2_url = paper.get("url") or ""
-    paper_id = paper.get("paperId") or ""
-
-    related = _fetch_recommendations(paper_id) if paper_id else []
 
     return {
         "citation_count": citation_count,
         "influential_citation_count": influential,
         "s2_url": s2_url,
-        "related_papers": related,
     }
 
 
@@ -131,34 +126,6 @@ def _fetch_by_title(title: str) -> Optional[Dict[str, Any]]:
     except Exception:
         log.debug("S2 title search failed for '%s'", title, exc_info=True)
     return None
-
-
-def _fetch_recommendations(paper_id: str) -> List[Dict[str, str]]:
-    """Fetch up to 5 recommended papers."""
-    try:
-        time.sleep(_REQUEST_DELAY)
-        resp = requests.get(
-            f"{_BASE}/recommendations/v1/papers/forpaper/{paper_id}",
-            params={"fields": _REC_FIELDS, "limit": 5},
-            timeout=config.HTTP_TIMEOUT,
-        )
-        if resp.status_code != 200:
-            log.debug("S2 recommendations returned %d", resp.status_code)
-            return []
-
-        results = []
-        for p in resp.json().get("recommendedPapers", [])[:5]:
-            ext = p.get("externalIds") or {}
-            results.append({
-                "title": p.get("title", ""),
-                "year": p.get("year") or 0,
-                "url": p.get("url", ""),
-                "doi": ext.get("DOI", ""),
-            })
-        return results
-    except Exception:
-        log.debug("S2 recommendations failed for %s", paper_id, exc_info=True)
-        return []
 
 
 def _retry_on_429(url: str, params: dict, retries: int = 3) -> Optional[Any]:

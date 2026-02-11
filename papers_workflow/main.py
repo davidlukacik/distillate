@@ -130,7 +130,6 @@ def _reprocess(args: list[str]) -> None:
                 takeaway=log_sentence,
                 topic_tags=meta.get("tags"),
                 citation_count=meta.get("citation_count", 0),
-                related_papers=meta.get("related_papers"),
             )
 
             # Add Obsidian deep link in Zotero
@@ -311,7 +310,6 @@ def _backfill_s2() -> None:
             meta["citation_count"] = s2_data["citation_count"]
             meta["influential_citation_count"] = s2_data["influential_citation_count"]
             meta["s2_url"] = s2_data["s2_url"]
-            meta["related_papers"] = s2_data["related_papers"]
             log.info(
                 "S2 enriched '%s': %d citations",
                 doc["title"], s2_data["citation_count"],
@@ -755,11 +753,9 @@ def main():
                                     meta["citation_count"] = s2_data["citation_count"]
                                     meta["influential_citation_count"] = s2_data["influential_citation_count"]
                                     meta["s2_url"] = s2_data["s2_url"]
-                                    meta["related_papers"] = s2_data["related_papers"]
                                     log.info(
-                                        "S2: %d citations, %d related papers",
+                                        "S2: %d citations",
                                         s2_data["citation_count"],
-                                        len(s2_data["related_papers"]),
                                     )
                             except Exception:
                                 log.debug("S2 lookup failed for '%s'", title, exc_info=True)
@@ -899,7 +895,6 @@ def main():
                     takeaway=log_sentence,
                     topic_tags=meta.get("tags"),
                     citation_count=meta.get("citation_count", 0),
-                    related_papers=meta.get("related_papers"),
                 )
 
                 # Add Obsidian deep link in Zotero
