@@ -2,52 +2,76 @@
 
 ## Done
 
-- ~~Smart storage~~ — PDFs deleted from Zotero immediately after upload to reMarkable. Originals kept in Obsidian `Papers/Inbox/`, annotated copies in `Papers/`. Zotero free tier is sustainable.
-- ~~Re-process command~~ — `papers-workflow --reprocess "Paper Title"` re-runs highlight extraction + PDF rendering. Reuses cached AI summaries.
-- ~~Richer Obsidian notes~~ — DOI, abstract, journal, publication date, URL in YAML frontmatter and note body.
-- ~~Claude paper summarization~~ — AI-generated 1-2 sentence takeaway (blockquote) + paragraph summary at top of note. Cached in state to avoid redundant API calls.
-- ~~Weekly email digest~~ — `--digest` sends plain HTML email via Resend with read/leafed papers, summaries, and direct URLs.
-- ~~Zotero notes sync~~ — Summary + highlights pushed to Zotero child note, searchable and visible on mobile.
-- ~~Dry run mode~~ — `--dry-run` previews what would happen without making any changes.
-- ~~Read vs Leafed triage~~ — Papers in `Papers/Leafed` on reMarkable get minimal notes, different Zotero tag, shorter summaries.
-- ~~Obsidian deep links~~ — "Open in Obsidian" linked_url attachment in Zotero (desktop).
-- ~~Safety improvements~~ — Stale lock detection, create-then-delete ordering, try-except per document, per-paper state saves.
-- ~~Two-column highlight fix~~ — GlyphRange items sorted by y-coordinate before merging, with word deduplication at boundaries.
-- ~~AI reading log~~ — Flat bullet list in `Reading Log.md` with inline dates and one-sentence summaries.
-- ~~Topic tag extraction~~ — Claude Haiku extracts 3-5 topic tags + paper type at ingestion. `--backfill-tags` for existing papers.
-- ~~Daily paper suggestions~~ — `--suggest` sends email with 3 papers to read next, balancing relevance, diversity, and queue age.
-- ~~GitHub Actions scheduling~~ — Cron-based `--suggest` (daily) and `--digest` (weekly) via GitHub Actions. `--sync-state` pushes state.json to remote.
+- ~~Smart storage~~ — PDFs deleted from Zotero after upload. Originals in Obsidian `Inbox/`, annotated in `Read/`. Zotero free tier is sustainable.
+- ~~Re-process command~~ — `--reprocess "Paper Title"` re-runs highlights + PDF rendering. Reuses cached summaries.
+- ~~Richer Obsidian notes~~ — DOI, abstract, journal, publication date, URL in YAML frontmatter.
+- ~~Claude summarization~~ — One-sentence takeaway + paragraph summary. Cached in state.
+- ~~Weekly email digest~~ — `--digest` via Resend with read/leafed papers, summaries, URLs.
+- ~~Zotero notes sync~~ — Summary + highlights pushed to Zotero child note.
+- ~~Dry run mode~~ — `--dry-run` previews without changes.
+- ~~Read vs Leafed triage~~ — Two processing paths with different depth.
+- ~~Obsidian deep links~~ — "Open in Obsidian" attachment in Zotero.
+- ~~Safety improvements~~ — Stale lock, create-then-delete, try-except, per-paper saves.
+- ~~Two-column highlights~~ — y-sorted merging with boundary deduplication.
+- ~~AI reading log~~ — `Reading Log.md` with dates and one-sentence summaries.
+- ~~Topic tags~~ — 3-5 tags + paper type at ingestion. `--backfill-tags` for existing papers.
+- ~~Paper suggestions~~ — `--suggest` daily email, `--promote` moves picks to RM root.
+- ~~GitHub Actions~~ — Scheduled `--suggest`, `--digest`, `--sync-state`.
+- ~~Semantic Scholar enrichment~~ — Citation counts + 5 related papers at ingestion. `--backfill-s2` for existing papers.
+- ~~Structured highlights~~ — Claude classifies into Key Findings, Methods, Limitations, Future Work, Background.
+- ~~Reading analytics dashboard~~ — `Reading Stats.md` Dataview note: monthly breakdown, topics, status distribution.
+- ~~Monthly research themes~~ — `--themes` synthesizes a month's reading into a research narrative. GitHub Actions on 1st.
+
+---
 
 ## Tier 2 — High value, moderate effort
 
-### 7. Smart highlight categories
-Use Claude to classify each highlight as "key finding", "method", "limitation", "future work", "background". Group them in the Obsidian note under labeled sections instead of a flat list.
+### Collection filtering
+Only sync papers from specific Zotero collections (configurable via `ZOTERO_COLLECTIONS`). Skip everything else.
 
-### 8. Related papers discovery
-After processing a paper, use Semantic Scholar API to find related papers. Add a `## Related` section to the Obsidian note with titles + links. Could auto-add the most relevant ones to Zotero.
+**Why**: Useful if you use Zotero broadly but only want some papers on reMarkable. Simple config + one filter in Step 1.
 
-### 9. Zotero collection filtering
-Only sync papers from specific collections (configurable via `ZOTERO_COLLECTIONS`). For people who use Zotero broadly but only want some papers on reMarkable.
+### Research questions extraction
+Claude extracts open questions and future directions from highlights. Add as a `## Open Questions` section in the note.
 
-## Tier 3 — Nice to have
+**Why**: The most actionable part of a paper is often what it *doesn't* answer. Having these extracted makes it easy to spot research gaps when reviewing notes later.
 
-### 10. Paper comparison tables
-When multiple papers on the same topic are processed, Claude generates a comparison table (approach, dataset, key result, limitation) as a standalone Obsidian note.
+### Richer weekly digest
+Add to the email: highlight count per paper, topic tags as colored pills, reading velocity ("you read 4 papers this week, up from 2"), and Obsidian deep links for desktop readers.
 
-### 11. Research questions extraction
-Claude identifies open questions and future directions from the paper. Add as a section in the note. Helps identify research gaps.
+**Why**: The current digest is functional but sparse. Small additions make it something you actually look forward to opening.
 
-### 12. Obsidian Canvas integration
-Auto-generate a research map (Canvas file) connecting papers by shared topics/citations. Visual overview of your reading.
+### Queue health alerts
+When the `--suggest` email fires, include a "queue health" section: total papers waiting, oldest paper age, papers added vs. processed this week. Flag papers sitting > 30 days.
 
-### 13. Reading stats dashboard
-Papers per week/month, highlights per paper, topic distribution, reading streaks. Obsidian Dataview note or standalone HTML report.
+**Why**: A growing backlog is invisible until it's overwhelming. Surfacing it in the daily email creates gentle accountability.
 
-### 14. Handwritten margin notes
-Extract pen strokes from `.rm` files, render as images, embed in Obsidian note alongside text highlights.
+---
 
-### 15. Log rotation + better notifications
-Rotate log files, richer macOS notifications (paper titles), optional Slack/Discord webhooks.
+## Tier 3 — Ambitious, worth exploring
 
-### 16. Literature review generator
-Select a set of papers, Claude generates a mini literature review section synthesizing their findings. Export as markdown or LaTeX.
+### Paper comparison tables
+When you process a paper with tags similar to an existing one, Claude generates a comparison table (approach, dataset, key result, limitation) and appends it to both notes.
+
+**Why**: Powerful for literature review prep. Requires cross-paper queries (match by tag overlap).
+
+### Obsidian Canvas maps
+Auto-generate a `.canvas` file connecting papers by shared topic tags. Nodes = papers, edges = shared tags. Update on each run.
+
+**Why**: Visual research landscape. Obsidian Canvas is native, no plugins needed. But the format is JSON and finicky to generate well.
+
+### Handwritten margin notes
+Extract pen strokes from `.rm` files, render as SVG/PNG images, embed in the Obsidian note alongside text highlights.
+
+**Why**: Some of the best thinking happens in margins. But rmscene pen stroke extraction is complex and rendering quality varies.
+
+### Literature review generator
+`--review "topic"` — Claude synthesizes all papers matching a topic tag into a structured mini literature review (intro, themes, gaps, conclusion). Export as a standalone Obsidian note.
+
+**Why**: The dream feature. But requires good structured highlights (Tier 1) and enough papers per topic to be useful.
+
+---
+
+## Dropped
+
+- ~~Log rotation + better notifications~~ — Low impact. Current notifications work fine, logs don't grow fast enough to matter.
