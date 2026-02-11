@@ -112,6 +112,7 @@ def _reprocess(args: list[str]) -> None:
 
             # Recreate Obsidian note (delete existing first)
             obsidian.ensure_dataview_note()
+            obsidian.ensure_stats_note()
             obsidian.delete_paper_note(title)
             obsidian.create_paper_note(
                 title=title,
@@ -798,6 +799,7 @@ def main():
 
                 # Create Obsidian note with classified highlights
                 obsidian.ensure_dataview_note()
+                obsidian.ensure_stats_note()
                 obsidian.create_paper_note(
                     title=doc["title"],
                     authors=doc["authors"],
@@ -887,6 +889,7 @@ def main():
                 # Create minimal Obsidian note
                 meta = doc.get("metadata", {})
                 obsidian.ensure_dataview_note()
+                obsidian.ensure_stats_note()
                 obsidian.create_leafed_note(
                     title=doc["title"],
                     authors=doc["authors"],

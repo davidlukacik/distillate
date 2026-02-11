@@ -27,6 +27,54 @@ SORT choice(date_read, date_read, date_leafed) DESC
 """
 
 
+_STATS_TEMPLATE = """\
+# Reading Stats
+
+## Monthly Breakdown
+
+```dataview
+TABLE length(rows) as "Papers"
+FROM "{folder}"
+WHERE tags AND (contains(tags, "read") OR contains(tags, "leafed"))
+FLATTEN choice(date_read, date_read, date_leafed) as completed
+GROUP BY dateformat(completed, "yyyy-MM") as "Month"
+SORT rows[0].completed DESC
+```
+
+## Status Distribution
+
+```dataview
+TABLE length(rows) as "Count"
+FROM "{folder}"
+WHERE tags AND (contains(tags, "read") OR contains(tags, "leafed"))
+GROUP BY choice(contains(tags, "leafed"), "Leafed", "Read") as "Status"
+```
+
+## Top Topics
+
+```dataview
+TABLE length(rows) as "Papers"
+FROM "{folder}"
+WHERE tags AND (contains(tags, "read") OR contains(tags, "leafed"))
+FLATTEN tags as tag
+WHERE tag != "paper" AND tag != "read" AND tag != "leafed"
+GROUP BY tag as "Topic"
+SORT length(rows) DESC
+LIMIT 15
+```
+
+## Recent Completions
+
+```dataview
+TABLE choice(date_read, date_read, date_leafed) as "Completed", join(authors, ", ") as "Authors", choice(contains(tags, "leafed"), "Leafed", "Read") as "Status"
+FROM "{folder}"
+WHERE tags AND (contains(tags, "read") OR contains(tags, "leafed"))
+SORT choice(date_read, date_read, date_leafed) DESC
+LIMIT 10
+```
+"""
+
+
 def _papers_dir() -> Optional[Path]:
     """Return the papers directory in the Obsidian vault, or None if unconfigured."""
     if not config.OBSIDIAN_VAULT_PATH:
@@ -173,6 +221,20 @@ def ensure_dataview_note() -> None:
             _DATAVIEW_TEMPLATE.format(folder=config.OBSIDIAN_PAPERS_FOLDER)
         )
         log.info("Created Dataview note: %s", dataview_path)
+
+
+def ensure_stats_note() -> None:
+    """Create the Reading Stats dashboard note if it doesn't exist."""
+    d = _papers_dir()
+    if d is None:
+        return
+
+    stats_path = d / "Reading Stats.md"
+    if not stats_path.exists():
+        stats_path.write_text(
+            _STATS_TEMPLATE.format(folder=config.OBSIDIAN_PAPERS_FOLDER)
+        )
+        log.info("Created Reading Stats note: %s", stats_path)
 
 
 def _render_highlights_md(
