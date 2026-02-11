@@ -95,19 +95,18 @@ def _reprocess(args: list[str]) -> None:
                     meta = zotero_client.extract_metadata(items[0])
                     doc["metadata"] = meta
 
+            # Flatten highlights for summarizer (needs raw text, not pages)
+            flat_highlights = [
+                h for page_hl in (highlights or {}).values() for h in page_hl
+            ] or None
+
             # Reuse stored summaries, only call API if missing
             log_sentence = doc.get("summary", "")
             note_summary = doc.get("note_summary", "")
             if not log_sentence or not note_summary:
                 note_summary, log_sentence = summarizer.summarize_read_paper(
-                    title, abstract=meta.get("abstract", ""), highlights=highlights,
-                )
-
-            # Classify highlights into categories
-            classified = None
-            if highlights:
-                classified = summarizer.classify_highlights(
-                    title, meta.get("abstract", ""), highlights,
+                    title, abstract=meta.get("abstract", ""),
+                    highlights=flat_highlights,
                 )
 
             # Recreate Obsidian note (delete existing first)
@@ -119,7 +118,7 @@ def _reprocess(args: list[str]) -> None:
                 authors=doc["authors"],
                 date_added=doc["uploaded_at"],
                 zotero_item_key=item_key,
-                highlights=classified,
+                highlights=highlights or None,
                 pdf_filename=pdf_filename,
                 doi=meta.get("doi", ""),
                 abstract=meta.get("abstract", ""),
@@ -139,7 +138,8 @@ def _reprocess(args: list[str]) -> None:
 
             # Sync note to Zotero
             zotero_note_html = zotero_client._build_note_html(
-                takeaway=log_sentence, summary=note_summary, highlights=classified,
+                takeaway=log_sentence, summary=note_summary,
+                highlights=highlights or None,
             )
             zotero_client.set_note(item_key, zotero_note_html)
 
@@ -861,22 +861,20 @@ def main():
                     item_key, config.ZOTERO_TAG_INBOX, config.ZOTERO_TAG_READ,
                 )
 
-                # Generate AI summaries (uses flat highlights)
+                # Flatten highlights for summarizer (needs raw text, not pages)
                 meta = doc.get("metadata", {})
+                flat_highlights = [
+                    h for page_hl in (highlights or {}).values() for h in page_hl
+                ] or None
+
+                # Generate AI summaries
                 note_summary, log_sentence = summarizer.summarize_read_paper(
                     doc["title"],
                     abstract=meta.get("abstract", ""),
-                    highlights=highlights,
+                    highlights=flat_highlights,
                 )
 
-                # Classify highlights into categories
-                classified = None
-                if highlights:
-                    classified = summarizer.classify_highlights(
-                        doc["title"], meta.get("abstract", ""), highlights,
-                    )
-
-                # Create Obsidian note with classified highlights
+                # Create Obsidian note with page-grouped highlights
                 obsidian.ensure_dataview_note()
                 obsidian.ensure_stats_note()
                 obsidian.create_paper_note(
@@ -884,7 +882,7 @@ def main():
                     authors=doc["authors"],
                     date_added=doc["uploaded_at"],
                     zotero_item_key=item_key,
-                    highlights=classified,
+                    highlights=highlights or None,
                     pdf_filename=pdf_filename,
                     doi=meta.get("doi", ""),
                     abstract=meta.get("abstract", ""),
@@ -905,7 +903,7 @@ def main():
                 # Sync note to Zotero
                 zotero_note_html = zotero_client._build_note_html(
                     takeaway=log_sentence, summary=note_summary,
-                    highlights=classified,
+                    highlights=highlights or None,
                 )
                 zotero_client.set_note(item_key, zotero_note_html)
 

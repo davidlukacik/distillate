@@ -335,7 +335,7 @@ def set_note(parent_key: str, html_content: str) -> Optional[str]:
 def _build_note_html(
     takeaway: str = "",
     summary: str = "",
-    highlights: Optional[Union[List[str], Dict[str, List[str]]]] = None,
+    highlights: Optional[Union[List[str], Dict[int, List[str]]]] = None,
 ) -> str:
     """Build HTML content for a Zotero note from summaries and highlights."""
     parts = []
@@ -345,20 +345,18 @@ def _build_note_html(
         parts.append(f"<p>{summary}</p>")
     if highlights:
         if isinstance(highlights, list):
-            # Flat list
             parts.append("<h2>Highlights</h2>")
             for h in highlights:
                 parts.append(f"<p>&ldquo;{h}&rdquo;</p>")
         elif isinstance(highlights, dict):
-            # Categorized
-            if len(highlights) == 1 and "Highlights" in highlights:
+            if len(highlights) == 1:
                 parts.append("<h2>Highlights</h2>")
-                for h in highlights["Highlights"]:
+                for h in next(iter(highlights.values())):
                     parts.append(f"<p>&ldquo;{h}&rdquo;</p>")
             else:
-                for category, items in highlights.items():
-                    parts.append(f"<h2>{category}</h2>")
-                    for h in items:
+                for page_num in sorted(highlights.keys()):
+                    parts.append(f"<h2>Page {page_num}</h2>")
+                    for h in highlights[page_num]:
                         parts.append(f"<p>&ldquo;{h}&rdquo;</p>")
     return "\n".join(parts)
 

@@ -238,11 +238,12 @@ def ensure_stats_note() -> None:
 
 
 def _render_highlights_md(
-    highlights: Optional[Union[List[str], Dict[str, List[str]]]],
+    highlights: Optional[Union[List[str], Dict[int, List[str]]]],
 ) -> str:
     """Render highlights as markdown.
 
-    Accepts either a flat list (legacy) or a categorized dict.
+    Accepts either a flat list (legacy) or a page-based dict
+    mapping page numbers to highlight lists.
     """
     if not highlights:
         return "*No highlights extracted.*"
@@ -251,13 +252,16 @@ def _render_highlights_md(
     if isinstance(highlights, list):
         return "\n".join(f"- \"{h}\"" for h in highlights)
 
-    # Categorized dict — sub-headers per category
-    if len(highlights) == 1 and "Highlights" in highlights:
-        return "\n".join(f"- \"{h}\"" for h in highlights["Highlights"])
+    # Page-based dict
+    if len(highlights) == 1:
+        # Single page — no headers needed
+        items = next(iter(highlights.values()))
+        return "\n".join(f"- \"{h}\"" for h in items)
 
     sections = []
-    for category, items in highlights.items():
-        sections.append(f"### {category}\n")
+    for page_num in sorted(highlights.keys()):
+        items = highlights[page_num]
+        sections.append(f"### Page {page_num}\n")
         sections.append("\n".join(f"- \"{h}\"" for h in items))
     return "\n\n".join(sections)
 
@@ -267,7 +271,7 @@ def create_paper_note(
     authors: List[str],
     date_added: str,
     zotero_item_key: str,
-    highlights: Optional[Union[List[str], Dict[str, List[str]]]] = None,
+    highlights: Optional[Union[List[str], Dict[int, List[str]]]] = None,
     pdf_filename: Optional[str] = None,
     doi: str = "",
     abstract: str = "",

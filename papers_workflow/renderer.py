@@ -26,18 +26,19 @@ _HIGHLIGHT_OPACITY = 0.35
 _HIGHLIGHT_TRIM = 0.20  # shrink quads vertically by this fraction per side
 
 
-def extract_highlights(zip_path: Path) -> List[str]:
+def extract_highlights(zip_path: Path) -> Dict[int, List[str]]:
     """Extract highlighted text strings from a reMarkable document bundle.
 
-    Returns a list of merged highlight passages ordered by page (may be empty).
+    Returns a dict mapping page numbers (1-based) to lists of merged
+    highlight passages for that page. Empty dict if no highlights found.
     """
-    passages: List[str] = []
+    by_page: Dict[int, List[str]] = {}
 
     try:
         with zipfile.ZipFile(zip_path, "r") as zf:
             content_files = [n for n in zf.namelist() if n.endswith(".content")]
             if not content_files:
-                return passages
+                return by_page
 
             content_data = json.loads(zf.read(content_files[0]))
             page_ids = content_data.get("cPages", {}).get("pages", [])
@@ -64,19 +65,22 @@ def extract_highlights(zip_path: Path) -> List[str]:
                 indexed.append((idx, rm_file))
             indexed.sort()
 
-            for _, rm_file in indexed:
+            for page_idx, rm_file in indexed:
                 try:
                     rm_data = zf.read(rm_file)
                     raw = _extract_raw_glyphs(rm_data)
-                    passages.extend(_merge_glyphs(raw))
+                    merged = _merge_glyphs(raw)
+                    if merged:
+                        by_page[page_idx + 1] = merged  # 1-based page numbers
                 except Exception:
                     log.warning("Failed to parse %s in %s", rm_file, zip_path, exc_info=True)
 
     except Exception:
         log.warning("Failed to read zip %s", zip_path, exc_info=True)
 
-    log.info("Extracted %d highlight(s) from %s", len(passages), zip_path.name)
-    return passages
+    total = sum(len(v) for v in by_page.values())
+    log.info("Extracted %d highlight(s) from %s", total, zip_path.name)
+    return by_page
 
 
 def render_annotated_pdf(zip_path: Path, output_path: Path) -> bool:
