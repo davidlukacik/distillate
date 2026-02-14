@@ -87,6 +87,9 @@ def _reprocess(args: list[str]) -> None:
             elif linked:
                 zotero_client.delete_attachment(linked["key"])
 
+            # Ensure read tag is set in Zotero
+            zotero_client.add_tag(item_key, config.ZOTERO_TAG_READ)
+
             # Fetch fresh metadata from Zotero (includes tags)
             items = zotero_client.get_items_by_keys([item_key])
             if items:
@@ -100,17 +103,17 @@ def _reprocess(args: list[str]) -> None:
                 h for page_hl in (highlights or {}).values() for h in page_hl
             ] or None
 
-            # Always regenerate summary on reprocess
-            summary, one_liner = summarizer.summarize_read_paper(
-                title, abstract=meta.get("abstract", ""),
-                highlights=flat_highlights,
-            )
-
-            # Extract key learnings
+            # Extract key learnings first (summary uses them)
             learnings = summarizer.extract_insights(
                 title,
                 highlights=flat_highlights,
                 abstract=meta.get("abstract", ""),
+            )
+
+            # Always regenerate summary on reprocess
+            summary, one_liner = summarizer.summarize_read_paper(
+                title, abstract=meta.get("abstract", ""),
+                key_learnings=learnings,
             )
 
             # Use original processing date, not today
@@ -330,7 +333,6 @@ def _themes(args: list[str]) -> None:
             "title": doc["title"],
             "tags": meta.get("tags", []),
             "summary": doc.get("summary", ""),
-            "reading_status": doc.get("reading_status", "read"),
             "paper_type": meta.get("paper_type", ""),
         })
 
@@ -435,7 +437,6 @@ def _promote() -> None:
             "title": doc["title"],
             "tags": meta.get("tags", []),
             "summary": doc.get("summary", ""),
-            "reading_status": doc.get("reading_status", "read"),
         })
 
     # Ask Claude to pick 3
@@ -807,18 +808,18 @@ def main():
                     h for page_hl in (highlights or {}).values() for h in page_hl
                 ] or None
 
-                # Generate AI summaries
-                summary, one_liner = summarizer.summarize_read_paper(
-                    doc["title"],
-                    abstract=meta.get("abstract", ""),
-                    highlights=flat_highlights,
-                )
-
-                # Extract key learnings
+                # Extract key learnings first (summary uses them)
                 learnings = summarizer.extract_insights(
                     doc["title"],
                     highlights=flat_highlights,
                     abstract=meta.get("abstract", ""),
+                )
+
+                # Generate AI summaries
+                summary, one_liner = summarizer.summarize_read_paper(
+                    doc["title"],
+                    abstract=meta.get("abstract", ""),
+                    key_learnings=learnings,
                 )
 
                 # Create Obsidian note with page-grouped highlights

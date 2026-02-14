@@ -131,7 +131,6 @@ def send_suggestion() -> None:
             "title": doc["title"],
             "tags": meta.get("tags", []),
             "summary": doc.get("summary", ""),
-            "reading_status": doc.get("reading_status", "read"),
         })
 
     # Ask Claude

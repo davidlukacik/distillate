@@ -12,28 +12,24 @@ log = logging.getLogger(__name__)
 def summarize_read_paper(
     title: str,
     abstract: str = "",
-    highlights: Optional[List[str]] = None,
+    key_learnings: Optional[List[str]] = None,
 ) -> Tuple[str, str]:
     """Generate summaries for a read paper.
 
     Returns (summary, one_liner):
       - summary: paragraph summarizing the paper's content and key ideas
-      - one_liner: one tight sentence explaining what the paper does/claims,
+      - one_liner: one tight sentence explaining why this paper matters,
         understandable by a non-specialist. Used as blockquote and in reading log.
     """
     if not config.ANTHROPIC_API_KEY:
-        return _fallback_read(title, abstract, highlights)
+        return _fallback_read(title, abstract, key_learnings)
 
-    context_parts = []
-    if abstract:
-        context_parts.append(f"Abstract: {abstract}")
-    if highlights:
-        context_parts.append("Highlights from reading:\n" + "\n".join(f"- {h}" for h in highlights))
+    if not abstract:
+        return _fallback_read(title, abstract, key_learnings)
 
-    if not context_parts:
-        return f"Read *{title}*.", f"Read *{title}*."
-
-    context = "\n\n".join(context_parts)
+    context = f"Abstract: {abstract}"
+    if key_learnings:
+        context += "\n\nKey takeaways:\n" + "\n".join(f"- {l}" for l in key_learnings)
 
     prompt = (
         f"You are summarizing a research paper for a personal reading log.\n\n"
@@ -43,13 +39,14 @@ def summarize_read_paper(
         f"does, its methods, and findings. State ideas directly as fact — never "
         f"start with 'this paper' or 'the authors'. Include specific methods, "
         f"results, or numbers where possible.\n"
-        f"2. ONE sentence (max 20 words) explaining what the paper does or claims, "
-        f"written so a well-educated person outside this field can understand it. "
-        f"Never start with 'the paper' or 'this study'.\n\n"
+        f"2. ONE sentence (max 20 words) explaining why this work matters — "
+        f"what it enables, changes, or makes possible. Focus on the real-world "
+        f"impact or implication, not what the paper 'does' or 'claims'. "
+        f"Written so a well-educated non-specialist can understand it.\n\n"
         f"Format:\n[paragraph]\n---\n[one sentence]"
     )
 
-    result = _call_claude(prompt)
+    result = _call_claude(prompt, model=config.CLAUDE_SMART_MODEL)
     if result and "---" in result:
         parts = result.split("---", 1)
         return parts[0].strip(), parts[1].strip()
@@ -61,7 +58,7 @@ def summarize_read_paper(
             one_liner += "."
         return result, one_liner
 
-    return _fallback_read(title, abstract, highlights)
+    return _fallback_read(title, abstract, key_learnings)
 
 
 def extract_insights(
@@ -103,7 +100,7 @@ def extract_insights(
         f"- So what: why it matters"
     )
 
-    result = _call_claude(prompt, max_tokens=250)
+    result = _call_claude(prompt, max_tokens=250, model=config.CLAUDE_SMART_MODEL)
     if not result:
         return []
 
@@ -139,8 +136,7 @@ def suggest_papers(
     for p in recent_reads[:10]:
         tags = ", ".join(p.get("tags", []))
         summary = p.get("summary", "")
-        status = p.get("reading_status", "read")
-        reads_lines.append(f"- [{status}] {p['title']} [{tags}] — {summary}")
+        reads_lines.append(f"- [read] {p['title']} [{tags}] — {summary}")
 
     # Build unread queue
     from datetime import datetime, timezone
@@ -191,7 +187,7 @@ def generate_monthly_themes(
     """Synthesize all papers from a month into a research narrative.
 
     Returns a 300-500 word first-person synthesis, or None on failure.
-    Each paper dict should have: title, tags, summary, reading_status, paper_type.
+    Each paper dict should have: title, tags, summary, paper_type.
     """
     if not config.ANTHROPIC_API_KEY or not papers:
         return None
@@ -200,11 +196,10 @@ def generate_monthly_themes(
     for p in papers:
         tags = ", ".join(p.get("tags", []))
         summary = p.get("summary", "")
-        status = p.get("reading_status", "read")
         paper_type = p.get("paper_type", "")
         type_str = f" [{paper_type}]" if paper_type else ""
         paper_lines.append(
-            f"- ({status}) {p['title']} [{tags}]{type_str} — {summary}"
+            f"- {p['title']} [{tags}]{type_str} — {summary}"
         )
 
     papers_text = "\n".join(paper_lines)
@@ -226,19 +221,20 @@ def generate_monthly_themes(
     return _call_claude(prompt, max_tokens=800)
 
 
-def _call_claude(prompt: str, max_tokens: int = 400) -> Optional[str]:
+def _call_claude(prompt: str, max_tokens: int = 400, model: Optional[str] = None) -> Optional[str]:
     """Call Claude API and return the response text, or None on failure."""
     try:
         import anthropic
 
+        use_model = model or config.CLAUDE_FAST_MODEL
         client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
         response = client.messages.create(
-            model=config.CLAUDE_MODEL,
+            model=use_model,
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
         )
         text = response.content[0].text.strip()
-        log.info("Generated summary (%d chars)", len(text))
+        log.info("Generated summary (%d chars, model=%s)", len(text), use_model)
         return text
     except Exception:
         log.exception("Failed to generate summary via Claude API")
@@ -246,7 +242,7 @@ def _call_claude(prompt: str, max_tokens: int = 400) -> Optional[str]:
 
 
 def _fallback_read(
-    title: str, abstract: str, highlights: Optional[List[str]],
+    title: str, abstract: str, key_learnings: Optional[List[str]],
 ) -> Tuple[str, str]:
     """Fallback summaries when Claude API is unavailable."""
     if abstract:
@@ -258,8 +254,8 @@ def _fallback_read(
         if not one_liner.endswith("."):
             one_liner += "."
         return summary, one_liner
-    if highlights:
-        return highlights[0], highlights[0]
+    if key_learnings:
+        return key_learnings[0], key_learnings[0]
     return f"Read *{title}*.", f"Read *{title}*."
 
 

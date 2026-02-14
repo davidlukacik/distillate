@@ -356,15 +356,26 @@ def append_to_reading_log(
     entry_date = existing_date or (date_read[:10] if date_read else date.today().isoformat())
     bullet = f"- {entry_date} — [[{sanitized}|{title}]] — {summary}"
 
-    # Remove ALL existing entries for this paper
+    # Remove ALL existing entries for this paper, then add new one
     cleaned = [line for line in lines if link_marker not in line]
 
-    if len(cleaned) < len(lines):
-        existing = "\n".join(cleaned)
+    # Separate header from bullet entries
+    header_lines = []
+    entry_lines = []
+    for line in cleaned:
+        if entry_lines or (line.startswith("- ") and len(line) > 12):
+            entry_lines.append(line)
+        else:
+            header_lines.append(line)
 
-    # Insert right after the "# Reading Log" header
-    header_end = existing.index("\n\n") + 2 if "\n\n" in existing else len(existing)
-    updated = existing[:header_end] + bullet + "\n" + existing[header_end:]
+    entry_lines.append(bullet)
+
+    # Sort entries by date, newest first
+    entry_lines = [l for l in entry_lines if l.strip()]
+    entry_lines.sort(key=lambda l: l[2:12] if l.startswith("- ") else "", reverse=True)
+
+    header = "\n".join(header_lines).rstrip("\n") + "\n\n"
+    updated = header + "\n".join(entry_lines) + "\n"
     log_path.write_text(updated)
     log.info("Updated Reading Log: %s", title)
 

@@ -121,14 +121,12 @@ class State:
     def mark_processed(
         self, zotero_item_key: str,
         summary: str = "",
-        reading_status: str = "read",
     ) -> None:
         doc = self._data["documents"].get(zotero_item_key)
         if doc:
             doc["status"] = "processed"
             if "processed_at" not in doc:
                 doc["processed_at"] = datetime.now(timezone.utc).isoformat()
-            doc["reading_status"] = reading_status
             if summary:
                 doc["summary"] = summary
             # Remove from promoted list if present
