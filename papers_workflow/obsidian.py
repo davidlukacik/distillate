@@ -233,6 +233,7 @@ def create_paper_note(
     takeaway: str = "",
     topic_tags: Optional[List[str]] = None,
     citation_count: int = 0,
+    open_questions: Optional[List[str]] = None,
 ) -> Optional[Path]:
     """Create an Obsidian note for a read paper in the Read subfolder.
 
@@ -281,6 +282,12 @@ def create_paper_note(
     takeaway_md = f"> {takeaway}\n\n" if takeaway else ""
     summary_md = f"{summary}\n\n" if summary else ""
 
+    # Optional open questions section
+    if open_questions:
+        questions_md = "## Open Questions\n\n" + "\n".join(f"- {q}" for q in open_questions) + "\n\n"
+    else:
+        questions_md = ""
+
     # Optional abstract section
     if abstract:
         abstract_md = f"## Abstract\n\n> {abstract}\n\n"
@@ -301,7 +308,7 @@ tags:
 
 # {title}
 
-{takeaway_md}{summary_md}{pdf_embed}{abstract_md}## Highlights
+{takeaway_md}{summary_md}{questions_md}{pdf_embed}{abstract_md}## Highlights
 
 {highlights_md}
 """

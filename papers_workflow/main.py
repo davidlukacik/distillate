@@ -109,6 +109,13 @@ def _reprocess(args: list[str]) -> None:
                     highlights=flat_highlights,
                 )
 
+            # Extract open research questions
+            questions = summarizer.extract_questions(
+                title,
+                highlights=flat_highlights,
+                abstract=meta.get("abstract", ""),
+            )
+
             # Recreate Obsidian note (delete existing first)
             obsidian.ensure_dataview_note()
             obsidian.ensure_stats_note()
@@ -129,6 +136,7 @@ def _reprocess(args: list[str]) -> None:
                 takeaway=log_sentence,
                 topic_tags=meta.get("tags"),
                 citation_count=meta.get("citation_count", 0),
+                open_questions=questions,
             )
 
             # Add Obsidian deep link in Zotero
@@ -863,6 +871,13 @@ def main():
                     highlights=flat_highlights,
                 )
 
+                # Extract open research questions
+                questions = summarizer.extract_questions(
+                    doc["title"],
+                    highlights=flat_highlights,
+                    abstract=meta.get("abstract", ""),
+                )
+
                 # Create Obsidian note with page-grouped highlights
                 obsidian.ensure_dataview_note()
                 obsidian.ensure_stats_note()
@@ -882,6 +897,7 @@ def main():
                     takeaway=log_sentence,
                     topic_tags=meta.get("tags"),
                     citation_count=meta.get("citation_count", 0),
+                    open_questions=questions,
                 )
 
                 # Add Obsidian deep link in Zotero

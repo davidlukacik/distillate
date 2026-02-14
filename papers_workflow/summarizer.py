@@ -1,6 +1,7 @@
 """AI-powered paper summarization using Claude."""
 
 import logging
+import re
 from typing import List, Optional, Tuple
 
 from papers_workflow import config
@@ -59,6 +60,57 @@ def summarize_read_paper(
         return result, sentences[0].strip() + ("." if not sentences[0].strip().endswith(".") else "")
 
     return _fallback_read(title, abstract, highlights)
+
+
+def extract_questions(
+    title: str,
+    highlights: Optional[List[str]] = None,
+    abstract: str = "",
+) -> List[str]:
+    """Extract 2-3 open research questions from a paper's highlights.
+
+    Returns a list of question strings, or empty list on failure.
+    """
+    if not config.ANTHROPIC_API_KEY:
+        return []
+
+    context_parts = []
+    if highlights:
+        context_parts.append("Highlights:\n" + "\n".join(f"- {h}" for h in highlights))
+    if abstract:
+        context_parts.append(f"Abstract: {abstract}")
+
+    if not context_parts:
+        return []
+
+    context = "\n\n".join(context_parts)
+
+    prompt = (
+        f"Based on these highlights from the paper \"{title}\", identify 2-3 "
+        f"open research questions, gaps, or directions for future work that "
+        f"emerge from the reading.\n\n"
+        f"{context}\n\n"
+        f"Be specific and actionable — each question should point toward a "
+        f"concrete investigation, not a vague area. Return a numbered list.\n"
+        f"If no clear questions emerge, return exactly: none"
+    )
+
+    result = _call_claude(prompt, max_tokens=200)
+    if not result or result.strip().lower() == "none":
+        return []
+
+    questions = []
+    for line in result.strip().split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        # Strip leading number + punctuation (e.g. "1. ", "1) ", "- ")
+        cleaned = re.sub(r"^\d+[.)]\s*", "", line)
+        cleaned = re.sub(r"^[-*]\s*", "", cleaned)
+        if cleaned:
+            questions.append(cleaned)
+
+    return questions[:3]
 
 
 def extract_tags(title: str, abstract: str = "") -> Tuple[List[str], str]:
