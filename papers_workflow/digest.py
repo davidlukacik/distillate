@@ -89,8 +89,8 @@ def _tag_pills_html(tags: list) -> str:
         # Use a table cell to bypass email client minimum font-size enforcement
         pills.append(
             f'<span style="display:inline-block;background:{bg};'
-            f'color:#555;padding:1px 6px;border-radius:10px;'
-            f'font-size:11px;line-height:16px;margin:1px 1px;'
+            f'color:#555;padding:0px 5px;border-radius:8px;'
+            f'font-size:11px;line-height:14px;margin:1px 1px;'
             f'mso-line-height-rule:exactly;">{tag}</span>'
         )
     return " ".join(pills)
