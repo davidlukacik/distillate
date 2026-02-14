@@ -5,7 +5,6 @@ and maintains a simple reading log.
 """
 
 import logging
-import shutil
 from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional, Union
@@ -19,10 +18,10 @@ _DATAVIEW_TEMPLATE = """\
 # Papers List
 
 ```dataview
-TABLE date_added as "Added", choice(date_read, date_read, date_leafed) as "Completed", join(authors, ", ") as "Authors", choice(contains(tags, "leafed"), "Leafed", "Read") as "Status"
+TABLE date_added as "Added", date_read as "Completed", join(authors, ", ") as "Authors"
 FROM "{folder}"
-WHERE tags AND (contains(tags, "read") OR contains(tags, "leafed"))
-SORT choice(date_read, date_read, date_leafed) DESC
+WHERE tags AND contains(tags, "read")
+SORT date_read DESC
 ```
 """
 
@@ -35,19 +34,9 @@ _STATS_TEMPLATE = """\
 ```dataview
 TABLE length(rows) as "Papers"
 FROM "{folder}"
-WHERE tags AND (contains(tags, "read") OR contains(tags, "leafed"))
-FLATTEN choice(date_read, date_read, date_leafed) as completed
-GROUP BY dateformat(completed, "yyyy-MM") as "Month"
-SORT rows[0].completed DESC
-```
-
-## Status Distribution
-
-```dataview
-TABLE length(rows) as "Count"
-FROM "{folder}"
-WHERE tags AND (contains(tags, "read") OR contains(tags, "leafed"))
-GROUP BY choice(contains(tags, "leafed"), "Leafed", "Read") as "Status"
+WHERE tags AND contains(tags, "read")
+GROUP BY dateformat(date_read, "yyyy-MM") as "Month"
+SORT rows[0].date_read DESC
 ```
 
 ## Top Topics
@@ -55,9 +44,9 @@ GROUP BY choice(contains(tags, "leafed"), "Leafed", "Read") as "Status"
 ```dataview
 TABLE length(rows) as "Papers"
 FROM "{folder}"
-WHERE tags AND (contains(tags, "read") OR contains(tags, "leafed"))
+WHERE tags AND contains(tags, "read")
 FLATTEN tags as tag
-WHERE tag != "paper" AND tag != "read" AND tag != "leafed"
+WHERE tag != "paper" AND tag != "read"
 GROUP BY tag as "Topic"
 SORT length(rows) DESC
 LIMIT 15
@@ -66,10 +55,10 @@ LIMIT 15
 ## Recent Completions
 
 ```dataview
-TABLE choice(date_read, date_read, date_leafed) as "Completed", join(authors, ", ") as "Authors", choice(contains(tags, "leafed"), "Leafed", "Read") as "Status"
+TABLE date_read as "Completed", join(authors, ", ") as "Authors"
 FROM "{folder}"
-WHERE tags AND (contains(tags, "read") OR contains(tags, "leafed"))
-SORT choice(date_read, date_read, date_leafed) DESC
+WHERE tags AND contains(tags, "read")
+SORT date_read DESC
 LIMIT 10
 ```
 """
@@ -104,16 +93,6 @@ def _read_dir() -> Optional[Path]:
     return rd
 
 
-def _leafed_dir() -> Optional[Path]:
-    """Return the Leafed subdirectory in the papers folder, or None if unconfigured."""
-    d = _papers_dir()
-    if d is None:
-        return None
-    ld = d / "Leafed"
-    ld.mkdir(parents=True, exist_ok=True)
-    return ld
-
-
 def save_inbox_pdf(title: str, pdf_bytes: bytes) -> Optional[Path]:
     """Save an original PDF to the Obsidian vault Inbox folder.
 
@@ -141,34 +120,6 @@ def delete_inbox_pdf(title: str) -> None:
     if pdf_path.exists():
         pdf_path.unlink()
         log.info("Removed from Inbox: %s", pdf_path)
-
-
-def move_inbox_pdf_to_leafed(title: str) -> Optional[Path]:
-    """Move a PDF from the Inbox folder to the Leafed folder.
-
-    Uses copy-then-delete for safety. Returns the destination path,
-    or None if the source PDF doesn't exist or Obsidian is unconfigured.
-    """
-    inbox = _inbox_dir()
-    ld = _leafed_dir()
-    if inbox is None or ld is None:
-        return None
-
-    sanitized = _sanitize_note_name(title)
-    src = inbox / f"{sanitized}.pdf"
-    if not src.exists():
-        log.info("No Inbox PDF to move for '%s'", title)
-        return None
-
-    dst = ld / f"{sanitized}.pdf"
-    shutil.copy2(str(src), str(dst))
-    if dst.exists():
-        src.unlink()
-        log.info("Moved PDF from Inbox to Leafed: %s", dst)
-        return dst
-
-    log.warning("Failed to copy PDF to Leafed for '%s'", title)
-    return None
 
 
 def delete_paper_note(title: str) -> None:
@@ -359,74 +310,6 @@ tags:
     return note_path
 
 
-def create_leafed_note(
-    title: str,
-    authors: List[str],
-    date_added: str,
-    zotero_item_key: str,
-    pdf_filename: Optional[str] = None,
-    doi: str = "",
-    url: str = "",
-    publication_date: str = "",
-    journal: str = "",
-    topic_tags: Optional[List[str]] = None,
-    citation_count: int = 0,
-) -> Optional[Path]:
-    """Create a minimal Obsidian note for a leafed-through paper in the Leafed subfolder."""
-    ld = _leafed_dir()
-    if ld is None:
-        return None
-
-    sanitized = _sanitize_note_name(title)
-    note_path = ld / f"{sanitized}.md"
-
-    if note_path.exists():
-        log.warning("Note already exists, skipping: %s", note_path)
-        return None
-
-    today = date.today().isoformat()
-
-    authors_yaml = "\n".join(f"  - {a}" for a in authors) if authors else "  - Unknown"
-    all_tags = ["paper", "leafed"] + (topic_tags or [])
-    tags_yaml = "\n".join(f"  - {t}" for t in all_tags)
-
-    optional = ""
-    if doi:
-        optional += f'\ndoi: "{_escape_yaml(doi)}"'
-    if journal:
-        optional += f'\njournal: "{_escape_yaml(journal)}"'
-    if publication_date:
-        optional += f'\npublication_date: "{publication_date}"'
-    if url:
-        optional += f'\nurl: "{_escape_yaml(url)}"'
-    if citation_count:
-        optional += f"\ncitation_count: {citation_count}"
-    pdf_yaml = f'\npdf: "[[{pdf_filename}]]"' if pdf_filename else ""
-    pdf_embed = f"![[{pdf_filename}]]\n\n" if pdf_filename else ""
-
-    content = f"""\
----
-title: "{_escape_yaml(title)}"
-authors:
-{authors_yaml}
-date_added: {date_added[:10]}
-date_leafed: {today}
-zotero: "zotero://select/library/items/{zotero_item_key}"{optional}{pdf_yaml}
-tags:
-{tags_yaml}
----
-
-# {title}
-
-{pdf_embed}## Quick Takeaways
-
--
-"""
-    note_path.write_text(content)
-    log.info("Created leafed note: %s", note_path)
-    return note_path
-
-
 def append_to_reading_log(
     title: str,
     status: str,
@@ -435,7 +318,6 @@ def append_to_reading_log(
     """Append a paper entry to the Reading Log note.
 
     Flat bullet list, newest first. Creates the note if needed.
-    Status should be "Read" or "Leafed".
     """
     d = _papers_dir()
     if d is None:
@@ -476,7 +358,6 @@ def append_to_reading_log(
 def get_obsidian_uri(title: str, subfolder: str = "Read") -> Optional[str]:
     """Return an obsidian:// URI that opens the paper note in the vault.
 
-    subfolder should be "Read" or "Leafed".
     Returns None if vault name is not configured.
     """
     if not config.OBSIDIAN_VAULT_NAME:
