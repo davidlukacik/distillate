@@ -101,7 +101,7 @@ def _reprocess(args: list[str]) -> None:
             ] or None
 
             # Always regenerate summary on reprocess
-            summary = summarizer.summarize_read_paper(
+            summary, one_liner = summarizer.summarize_read_paper(
                 title, abstract=meta.get("abstract", ""),
                 highlights=flat_highlights,
             )
@@ -133,6 +133,7 @@ def _reprocess(args: list[str]) -> None:
                 publication_date=meta.get("publication_date", ""),
                 journal=meta.get("journal", ""),
                 summary=summary,
+                one_liner=one_liner,
                 topic_tags=meta.get("tags"),
                 citation_count=meta.get("citation_count", 0),
                 key_learnings=learnings,
@@ -151,11 +152,11 @@ def _reprocess(args: list[str]) -> None:
             )
             zotero_client.set_note(item_key, zotero_note_html)
 
-            # Update reading log
-            obsidian.append_to_reading_log(title, "Read", summary, date_read=read_date)
+            # Update reading log (one_liner only)
+            obsidian.append_to_reading_log(title, "Read", one_liner, date_read=read_date)
 
             # Save summary to state
-            state.mark_processed(item_key, summary=summary)
+            state.mark_processed(item_key, summary=one_liner)
             state.save()
 
             log.info("Reprocessed: %s", title)
@@ -807,8 +808,8 @@ if "--backfill-s2" in sys.argv:
                     h for page_hl in (highlights or {}).values() for h in page_hl
                 ] or None
 
-                # Generate AI summary
-                summary = summarizer.summarize_read_paper(
+                # Generate AI summaries
+                summary, one_liner = summarizer.summarize_read_paper(
                     doc["title"],
                     abstract=meta.get("abstract", ""),
                     highlights=flat_highlights,
@@ -837,6 +838,7 @@ if "--backfill-s2" in sys.argv:
                     publication_date=meta.get("publication_date", ""),
                     journal=meta.get("journal", ""),
                     summary=summary,
+                    one_liner=one_liner,
                     topic_tags=meta.get("tags"),
                     citation_count=meta.get("citation_count", 0),
                     key_learnings=learnings,
@@ -854,8 +856,8 @@ if "--backfill-s2" in sys.argv:
                 )
                 zotero_client.set_note(item_key, zotero_note_html)
 
-                # Append to reading log
-                obsidian.append_to_reading_log(doc["title"], "Read", summary)
+                # Append to reading log (one_liner only)
+                obsidian.append_to_reading_log(doc["title"], "Read", one_liner)
 
                 # Move to Vault on reMarkable
                 remarkable_client.move_document(
@@ -863,7 +865,7 @@ if "--backfill-s2" in sys.argv:
                 )
 
                 # Update state
-                state.mark_processed(item_key, summary=summary)
+                state.mark_processed(item_key, summary=one_liner)
                 state.save()
                 synced_count += 1
                 log.info("Processed: %s", rm_name)

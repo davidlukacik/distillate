@@ -230,6 +230,7 @@ def create_paper_note(
     publication_date: str = "",
     journal: str = "",
     summary: str = "",
+    one_liner: str = "",
     topic_tags: Optional[List[str]] = None,
     citation_count: int = 0,
     key_learnings: Optional[List[str]] = None,
@@ -279,12 +280,15 @@ def create_paper_note(
     # Optional PDF embed in note body
     pdf_embed = f"![[{pdf_filename}]]\n\n" if pdf_filename else ""
 
+    # One-liner blockquote at top
+    oneliner_md = f"> {one_liner}\n\n" if one_liner else ""
+
     # Summary paragraph
     summary_md = f"{summary}\n\n" if summary else ""
 
-    # Optional key learnings section
+    # Key ideas as bare bullet list (no header)
     if key_learnings:
-        learnings_md = "## Key Learnings\n\n" + "\n".join(f"- {l}" for l in key_learnings) + "\n\n"
+        learnings_md = "\n".join(f"- {l}" for l in key_learnings) + "\n\n"
     else:
         learnings_md = ""
 
@@ -314,7 +318,7 @@ tags:
 
 # {title}
 
-{summary_md}{learnings_md}{questions_md}{pdf_embed}{abstract_md}## Highlights
+{oneliner_md}{summary_md}{learnings_md}{questions_md}{pdf_embed}{abstract_md}## Highlights
 
 {highlights_md}
 """

@@ -13,11 +13,13 @@ def summarize_read_paper(
     title: str,
     abstract: str = "",
     highlights: Optional[List[str]] = None,
-) -> str:
-    """Generate a high-level summary for a read paper.
+) -> Tuple[str, str]:
+    """Generate summaries for a read paper.
 
-    Returns a 2-3 sentence summary describing what the paper does and its
-    core thesis. Used identically in the Obsidian note and reading log.
+    Returns (summary, one_liner):
+      - summary: paragraph summarizing the paper's content and key ideas
+      - one_liner: one tight sentence explaining what the paper does/claims,
+        understandable by a non-specialist. Used as blockquote and in reading log.
     """
     if not config.ANTHROPIC_API_KEY:
         return _fallback_read(title, abstract, highlights)
@@ -29,24 +31,35 @@ def summarize_read_paper(
         context_parts.append("Highlights from reading:\n" + "\n".join(f"- {h}" for h in highlights))
 
     if not context_parts:
-        return f"Read *{title}*."
+        return f"Read *{title}*.", f"Read *{title}*."
 
     context = "\n\n".join(context_parts)
 
     prompt = (
         f"You are summarizing a research paper for a personal reading log.\n\n"
         f"Paper: {title}\n\n{context}\n\n"
-        f"Write a 2-3 sentence summary that describes what this paper does and "
-        f"its core thesis. Write so that someone who read this paper years ago "
-        f"can immediately recall what it was about. State the idea directly as "
-        f"fact — never start with 'this paper' or 'the authors'. Include "
-        f"specific methods, results, or numbers where possible.\n\n"
-        f"Return ONLY the summary, nothing else."
+        f"Provide two things, separated by the exact line '---':\n"
+        f"1. A paragraph (3-4 sentences) summarizing the paper. Describe what it "
+        f"does, its methods, and findings. State ideas directly as fact — never "
+        f"start with 'this paper' or 'the authors'. Include specific methods, "
+        f"results, or numbers where possible.\n"
+        f"2. ONE sentence (max 20 words) explaining what the paper does or claims, "
+        f"written so a well-educated person outside this field can understand it. "
+        f"Never start with 'the paper' or 'this study'.\n\n"
+        f"Format:\n[paragraph]\n---\n[one sentence]"
     )
 
     result = _call_claude(prompt)
+    if result and "---" in result:
+        parts = result.split("---", 1)
+        return parts[0].strip(), parts[1].strip()
+
     if result:
-        return result
+        sentences = result.split(". ")
+        one_liner = sentences[0].strip()
+        if not one_liner.endswith("."):
+            one_liner += "."
+        return result, one_liner
 
     return _fallback_read(title, abstract, highlights)
 
@@ -239,16 +252,19 @@ def _call_claude(prompt: str, max_tokens: int = 400) -> Optional[str]:
 
 def _fallback_read(
     title: str, abstract: str, highlights: Optional[List[str]],
-) -> str:
-    """Fallback summary when Claude API is unavailable."""
+) -> Tuple[str, str]:
+    """Fallback summaries when Claude API is unavailable."""
     if abstract:
         sentences = abstract.replace("\n", " ").split(". ")
         summary = ". ".join(sentences[:3]).strip()
         if not summary.endswith("."):
             summary += "."
-        return summary
+        one_liner = sentences[0].strip()
+        if not one_liner.endswith("."):
+            one_liner += "."
+        return summary, one_liner
     if highlights:
-        return highlights[0]
-    return f"Read *{title}*."
+        return highlights[0], highlights[0]
+    return f"Read *{title}*.", f"Read *{title}*."
 
 
