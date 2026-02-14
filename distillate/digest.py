@@ -4,13 +4,38 @@ import logging
 import re
 from datetime import datetime, timedelta, timezone
 
-import resend
-
-from papers_workflow import config
-from papers_workflow import summarizer
-from papers_workflow.state import State
+from distillate import config
+from distillate import summarizer
+from distillate.state import State
 
 log = logging.getLogger(__name__)
+
+
+def _send_email(subject: str, html: str) -> dict | None:
+    """Send an email via Resend. Returns result or None if unavailable."""
+    try:
+        import resend
+    except ImportError:
+        log.error(
+            "Email requires the 'resend' package. "
+            "Install it with: pip install distillate[email]"
+        )
+        return None
+    if not config.RESEND_API_KEY:
+        log.error("RESEND_API_KEY not set, cannot send email")
+        return None
+    if not config.DIGEST_TO:
+        log.error("DIGEST_TO not set, cannot send email")
+        return None
+    resend.api_key = config.RESEND_API_KEY
+    result = resend.Emails.send({
+        "from": config.DIGEST_FROM,
+        "to": [config.DIGEST_TO],
+        "subject": subject,
+        "html": html,
+    })
+    log.info("Sent email to %s: %s", config.DIGEST_TO, result)
+    return result
 
 
 def _sync_tags(state: State) -> None:
@@ -19,7 +44,7 @@ def _sync_tags(state: State) -> None:
     Lightweight sync: only fetches items whose Zotero version changed,
     updates tags/URL/DOI in state metadata.
     """
-    from papers_workflow import zotero_client
+    from distillate import zotero_client
 
     try:
         current_version = zotero_client.get_library_version()
@@ -191,13 +216,6 @@ def send_weekly_digest(days: int = 7) -> None:
     """Compile and send a digest of papers processed in the last N days."""
     config.setup_logging()
 
-    if not config.RESEND_API_KEY:
-        log.error("RESEND_API_KEY not set, cannot send digest")
-        return
-    if not config.DIGEST_TO:
-        log.error("DIGEST_TO not set, cannot send digest")
-        return
-
     state = State()
     _sync_tags(state)
 
@@ -211,15 +229,7 @@ def send_weekly_digest(days: int = 7) -> None:
 
     subject = _build_subject()
     body = _build_body(papers, state)
-
-    resend.api_key = config.RESEND_API_KEY
-    result = resend.Emails.send({
-        "from": config.DIGEST_FROM,
-        "to": [config.DIGEST_TO],
-        "subject": subject,
-        "html": body,
-    })
-    log.info("Sent weekly digest to %s: %s", config.DIGEST_TO, result)
+    _send_email(subject, body)
 
 
 def _build_subject():
@@ -259,7 +269,7 @@ def _paper_html(p):
     processed_at = p.get("processed_at", "")
 
     # Title with Obsidian deep link
-    from papers_workflow import obsidian
+    from distillate import obsidian
     obsidian_uri = obsidian.get_obsidian_uri(title)
     if obsidian_uri:
         title_html = (
@@ -335,13 +345,6 @@ def send_suggestion() -> None:
     """Send a daily email suggesting 3 papers and store picks for promotion."""
     config.setup_logging()
 
-    if not config.RESEND_API_KEY:
-        log.error("RESEND_API_KEY not set, cannot send suggestion")
-        return
-    if not config.DIGEST_TO:
-        log.error("DIGEST_TO not set, cannot send suggestion")
-        return
-
     state = State()
     _sync_tags(state)
 
@@ -402,26 +405,12 @@ def send_suggestion() -> None:
     subject = datetime.now().strftime("What to read next \u2013 %b %-d, %Y")
     body = _build_suggestion_body(result, unread, state)
 
-    resend.api_key = config.RESEND_API_KEY
-    send_result = resend.Emails.send({
-        "from": config.DIGEST_FROM,
-        "to": [config.DIGEST_TO],
-        "subject": subject,
-        "html": body,
-    })
-    log.info("Sent suggestion to %s: %s", config.DIGEST_TO, send_result)
+    _send_email(subject, body)
 
 
 def send_themes_email(month: str, themes_text: str) -> None:
     """Send a monthly research themes email."""
     config.setup_logging()
-
-    if not config.RESEND_API_KEY:
-        log.error("RESEND_API_KEY not set, cannot send themes email")
-        return
-    if not config.DIGEST_TO:
-        log.error("DIGEST_TO not set, cannot send themes email")
-        return
 
     # Convert markdown paragraphs to HTML
     paragraphs = themes_text.strip().split("\n\n")
@@ -435,14 +424,7 @@ def send_themes_email(month: str, themes_text: str) -> None:
         "</body></html>"
     )
 
-    resend.api_key = config.RESEND_API_KEY
-    result = resend.Emails.send({
-        "from": config.DIGEST_FROM,
-        "to": [config.DIGEST_TO],
-        "subject": f"Research themes \u2014 {month}",
-        "html": html,
-    })
-    log.info("Sent themes email to %s: %s", config.DIGEST_TO, result)
+    _send_email(f"Research themes \u2014 {month}", html)
 
 
 def _build_suggestion_body(suggestion_text, unread, state: State):

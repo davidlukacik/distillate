@@ -4,7 +4,7 @@ import logging
 import re
 from typing import List, Optional, Tuple
 
-from papers_workflow import config
+from distillate import config
 
 log = logging.getLogger(__name__)
 
@@ -227,7 +227,14 @@ def _call_claude(prompt: str, max_tokens: int = 400, model: Optional[str] = None
     """Call Claude API and return the response text, or None on failure."""
     try:
         import anthropic
+    except ImportError:
+        log.error(
+            "AI summaries require the 'anthropic' package. "
+            "Install it with: pip install distillate[ai]"
+        )
+        return None
 
+    try:
         use_model = model or config.CLAUDE_FAST_MODEL
         client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
         response = client.messages.create(

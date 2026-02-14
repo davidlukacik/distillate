@@ -9,15 +9,18 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 
-from papers_workflow import config
+from distillate import config
 
 log = logging.getLogger(__name__)
 
 _BASE = "https://api.zotero.org"
-_HEADERS = {
-    "Zotero-API-Version": "3",
-    "Zotero-API-Key": config.ZOTERO_API_KEY,
-}
+
+
+def _headers() -> dict:
+    return {
+        "Zotero-API-Version": "3",
+        "Zotero-API-Key": config.ZOTERO_API_KEY,
+    }
 
 
 def _url(path: str) -> str:
@@ -26,7 +29,7 @@ def _url(path: str) -> str:
 
 def _get(path: str, params: Optional[Dict] = None, **kwargs) -> requests.Response:
     resp = requests.get(
-        _url(path), headers=_HEADERS, params=params,
+        _url(path), headers=_headers(), params=params,
         timeout=config.HTTP_TIMEOUT, **kwargs,
     )
     _handle_backoff(resp)
@@ -36,7 +39,7 @@ def _get(path: str, params: Optional[Dict] = None, **kwargs) -> requests.Respons
 
 def _post(path: str, **kwargs) -> requests.Response:
     resp = requests.post(
-        _url(path), headers=_HEADERS,
+        _url(path), headers=_headers(),
         timeout=config.HTTP_TIMEOUT, **kwargs,
     )
     _handle_backoff(resp)
@@ -45,7 +48,7 @@ def _post(path: str, **kwargs) -> requests.Response:
 
 
 def _patch(path: str, **kwargs) -> requests.Response:
-    headers = {**_HEADERS, **kwargs.pop("headers", {})}
+    headers = {**_headers(), **kwargs.pop("headers", {})}
     resp = requests.patch(
         _url(path), headers=headers,
         timeout=config.HTTP_TIMEOUT, **kwargs,
@@ -56,7 +59,7 @@ def _patch(path: str, **kwargs) -> requests.Response:
 
 
 def _delete(path: str, **kwargs) -> requests.Response:
-    headers = {**_HEADERS, **kwargs.pop("headers", {})}
+    headers = {**_headers(), **kwargs.pop("headers", {})}
     resp = requests.delete(
         _url(path), headers=headers,
         timeout=config.HTTP_TIMEOUT, **kwargs,

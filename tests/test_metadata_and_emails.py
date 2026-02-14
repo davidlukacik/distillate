@@ -17,7 +17,7 @@ class TestParseFrontmatterBlocks:
     """Tests for obsidian._parse_frontmatter_blocks()."""
 
     def test_simple_key_values(self):
-        from papers_workflow.obsidian import _parse_frontmatter_blocks
+        from distillate.obsidian import _parse_frontmatter_blocks
 
         fm = 'title: "My Paper"\ndate_added: 2026-01-15\ndate_read: 2026-02-10'
         blocks = _parse_frontmatter_blocks(fm)
@@ -27,7 +27,7 @@ class TestParseFrontmatterBlocks:
         assert blocks["date_added"] == "date_added: 2026-01-15"
 
     def test_multiline_list(self):
-        from papers_workflow.obsidian import _parse_frontmatter_blocks
+        from distillate.obsidian import _parse_frontmatter_blocks
 
         fm = (
             'title: "Test"\n'
@@ -43,14 +43,14 @@ class TestParseFrontmatterBlocks:
         assert "Bob" in blocks["authors"]
 
     def test_preserves_order(self):
-        from papers_workflow.obsidian import _parse_frontmatter_blocks
+        from distillate.obsidian import _parse_frontmatter_blocks
 
         fm = "a: 1\nb: 2\nc: 3\nd: 4"
         blocks = _parse_frontmatter_blocks(fm)
         assert list(blocks.keys()) == ["a", "b", "c", "d"]
 
     def test_tags_block(self):
-        from papers_workflow.obsidian import _parse_frontmatter_blocks
+        from distillate.obsidian import _parse_frontmatter_blocks
 
         fm = (
             "tags:\n"
@@ -67,7 +67,7 @@ class TestRebuildFrontmatter:
     """Tests for obsidian._rebuild_frontmatter()."""
 
     def test_roundtrip(self):
-        from papers_workflow.obsidian import (
+        from distillate.obsidian import (
             _parse_frontmatter_blocks,
             _rebuild_frontmatter,
         )
@@ -91,7 +91,7 @@ class TestUpdateNoteFrontmatter:
     """Tests for obsidian.update_note_frontmatter()."""
 
     def test_updates_tags_and_authors(self, tmp_path):
-        from papers_workflow.obsidian import (
+        from distillate.obsidian import (
             _parse_frontmatter_blocks,
             update_note_frontmatter,
         )
@@ -125,7 +125,7 @@ class TestUpdateNoteFrontmatter:
             "doi": "10.1234/test",
         }
 
-        with patch("papers_workflow.obsidian._read_dir", return_value=tmp_path / "Read"):
+        with patch("distillate.obsidian._read_dir", return_value=tmp_path / "Read"):
             result = update_note_frontmatter("Test Paper", metadata)
 
         assert result is True
@@ -154,9 +154,9 @@ class TestUpdateNoteFrontmatter:
         assert "date_added: 2026-01-01" in updated
 
     def test_returns_false_for_missing_note(self, tmp_path):
-        from papers_workflow.obsidian import update_note_frontmatter
+        from distillate.obsidian import update_note_frontmatter
 
-        with patch("papers_workflow.obsidian._read_dir", return_value=tmp_path):
+        with patch("distillate.obsidian._read_dir", return_value=tmp_path):
             result = update_note_frontmatter("Nonexistent", {})
 
         assert result is False
@@ -171,18 +171,18 @@ class TestTagPillsHtml:
     """Tests for digest._tag_pills_html()."""
 
     def test_empty_tags(self):
-        from papers_workflow.digest import _tag_pills_html
+        from distillate.digest import _tag_pills_html
         assert _tag_pills_html([]) == ""
 
     def test_renders_pills(self):
-        from papers_workflow.digest import _tag_pills_html
+        from distillate.digest import _tag_pills_html
         html = _tag_pills_html(["ml", "nlp"])
         assert "ml" in html
         assert "nlp" in html
         assert "border-radius" in html
 
     def test_deterministic_colors(self):
-        from papers_workflow.digest import _tag_pills_html
+        from distillate.digest import _tag_pills_html
         html1 = _tag_pills_html(["ml"])
         html2 = _tag_pills_html(["ml"])
         assert html1 == html2
@@ -192,7 +192,7 @@ class TestReadingVelocityHtml:
     """Tests for digest._reading_velocity_html()."""
 
     def test_renders_counts(self):
-        from papers_workflow.digest import _reading_velocity_html
+        from distillate.digest import _reading_velocity_html
 
         state = MagicMock()
         state.documents_processed_since = MagicMock(
@@ -209,7 +209,7 @@ class TestReadingVelocityHtml:
         assert "3 this month." in html
 
     def test_singular_paper(self):
-        from papers_workflow.digest import _reading_velocity_html
+        from distillate.digest import _reading_velocity_html
 
         state = MagicMock()
         state.documents_processed_since.side_effect = [
@@ -225,7 +225,7 @@ class TestQueueHealthHtml:
     """Tests for digest._queue_health_html()."""
 
     def test_renders_stats(self):
-        from papers_workflow.digest import _queue_health_html
+        from distillate.digest import _queue_health_html
 
         now = datetime.now(timezone.utc)
         old_date = (now - timedelta(days=45)).isoformat()

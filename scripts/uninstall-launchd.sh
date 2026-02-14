@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Uninstall macOS Launch Agents for papers-workflow.
+# Uninstall macOS Launch Agents for distillate.
 #
 set -euo pipefail
 
@@ -18,7 +18,7 @@ uninstall_agent() {
     echo "Uninstalled: $label"
 }
 
-uninstall_agent "com.papers-workflow.sync"
-uninstall_agent "com.papers-workflow.promote"
+uninstall_agent "com.distillate.sync"
+uninstall_agent "com.distillate.promote"
 
-echo "Log file kept at: $HOME/Library/Logs/papers-workflow.log"
+echo "Log file kept at: $HOME/Library/Logs/distillate.log"

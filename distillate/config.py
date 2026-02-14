@@ -6,14 +6,28 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+# Config directory: respects XDG_CONFIG_HOME, overridable with DISTILLATE_CONFIG_DIR
+CONFIG_DIR = Path(
+    os.environ.get("DISTILLATE_CONFIG_DIR", "")
+    or (
+        Path(os.environ.get("XDG_CONFIG_HOME", "") or Path.home() / ".config")
+        / "distillate"
+    )
+)
+CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+# .env file: prefer CWD (for dev installs), then config dir
+ENV_PATH = CONFIG_DIR / ".env"
+if not ENV_PATH.exists() and (Path.cwd() / ".env").exists():
+    ENV_PATH = Path.cwd() / ".env"
+
 load_dotenv(ENV_PATH)
 
 
 def _require(var: str) -> str:
     value = os.environ.get(var, "").strip()
     if not value or value.startswith("your_"):
-        print(f"Error: {var} is not set. Fill it in .env")
+        print(f"Error: {var} is not set. Fill it in {ENV_PATH}")
         sys.exit(1)
     return value
 
@@ -37,9 +51,9 @@ def save_to_env(key: str, value: str) -> None:
     os.environ[key] = value
 
 
-# Required
-ZOTERO_API_KEY: str = _require("ZOTERO_API_KEY")
-ZOTERO_USER_ID: str = _require("ZOTERO_USER_ID")
+# Required — loaded lazily via ensure_loaded(), called at start of main()
+ZOTERO_API_KEY: str = ""
+ZOTERO_USER_ID: str = ""
 
 # Optional — reMarkable token is set later via --register
 REMARKABLE_DEVICE_TOKEN: str = os.environ.get("REMARKABLE_DEVICE_TOKEN", "").strip()
@@ -73,6 +87,19 @@ HTTP_TIMEOUT: int = int(os.environ.get("HTTP_TIMEOUT", "30"))
 LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO").strip().upper()
 CLAUDE_FAST_MODEL: str = os.environ.get("CLAUDE_FAST_MODEL", "claude-haiku-4-5-20251001").strip()
 CLAUDE_SMART_MODEL: str = os.environ.get("CLAUDE_SMART_MODEL", "claude-sonnet-4-5-20250929").strip()
+
+
+_loaded = False
+
+
+def ensure_loaded() -> None:
+    """Validate required config vars. Call at the start of main()."""
+    global _loaded, ZOTERO_API_KEY, ZOTERO_USER_ID
+    if _loaded:
+        return
+    _loaded = True
+    ZOTERO_API_KEY = _require("ZOTERO_API_KEY")
+    ZOTERO_USER_ID = _require("ZOTERO_USER_ID")
 
 
 def setup_logging() -> None:

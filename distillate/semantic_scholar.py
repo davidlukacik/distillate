@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 
 import requests
 
-from papers_workflow import config
+from distillate import config
 
 log = logging.getLogger(__name__)
 

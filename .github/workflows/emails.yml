@@ -56,7 +56,7 @@ jobs:
           fi
 
       - name: Run command
-        run: .venv/bin/papers-workflow ${{ steps.cmd.outputs.args }}
+        run: .venv/bin/distillate ${{ steps.cmd.outputs.args }}
         env:
           ZOTERO_API_KEY: ${{ secrets.ZOTERO_API_KEY }}
           ZOTERO_USER_ID: ${{ secrets.ZOTERO_USER_ID }}

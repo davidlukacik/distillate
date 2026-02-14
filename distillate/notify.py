@@ -16,7 +16,7 @@ def send(title: str, message: str) -> None:
     try:
         subprocess.run(
             ["terminal-notifier", "-title", title, "-message", message,
-             "-group", "papers-workflow"],
+             "-group", "distillate"],
             capture_output=True, timeout=10,
         )
     except FileNotFoundError:
@@ -47,7 +47,7 @@ def notify_summary(sent_count: int, synced_count: int) -> None:
     if not parts:
         return
 
-    send("Papers Workflow", ", ".join(parts))
+    send("Distillate", ", ".join(parts))
 
 
 def _escape(s: str) -> str:

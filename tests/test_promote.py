@@ -21,12 +21,12 @@ class TestStatDocument:
     )
 
     def test_parses_current_page_and_modified(self):
-        from papers_workflow.remarkable_client import stat_document
+        from distillate.remarkable_client import stat_document
 
         fake_result = subprocess.CompletedProcess(
             args=[], returncode=0, stdout=self.SAMPLE_STAT_OUTPUT, stderr=""
         )
-        with patch("papers_workflow.remarkable_client._run", return_value=fake_result):
+        with patch("distillate.remarkable_client._run", return_value=fake_result):
             info = stat_document("Papers", "My Paper")
 
         assert info is not None
@@ -34,7 +34,7 @@ class TestStatDocument:
         assert "2026-02-07" in info["modified_client"]
 
     def test_current_page_zero(self):
-        from papers_workflow.remarkable_client import stat_document
+        from distillate.remarkable_client import stat_document
 
         output = (
             "ModifiedClient: 2026-02-07 08:30:00.000000000 +0000 UTC\n"
@@ -43,36 +43,36 @@ class TestStatDocument:
         fake_result = subprocess.CompletedProcess(
             args=[], returncode=0, stdout=output, stderr=""
         )
-        with patch("papers_workflow.remarkable_client._run", return_value=fake_result):
+        with patch("distillate.remarkable_client._run", return_value=fake_result):
             info = stat_document("Papers", "My Paper")
 
         assert info is not None
         assert info["current_page"] == 0
 
     def test_returns_none_on_failure(self):
-        from papers_workflow.remarkable_client import stat_document
+        from distillate.remarkable_client import stat_document
 
         fake_result = subprocess.CompletedProcess(
             args=[], returncode=1, stdout="", stderr="not found"
         )
-        with patch("papers_workflow.remarkable_client._run", return_value=fake_result):
+        with patch("distillate.remarkable_client._run", return_value=fake_result):
             info = stat_document("Papers", "Missing Doc")
 
         assert info is None
 
     def test_returns_none_on_empty_output(self):
-        from papers_workflow.remarkable_client import stat_document
+        from distillate.remarkable_client import stat_document
 
         fake_result = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="SomeOtherField: value\n", stderr=""
         )
-        with patch("papers_workflow.remarkable_client._run", return_value=fake_result):
+        with patch("distillate.remarkable_client._run", return_value=fake_result):
             info = stat_document("Papers", "Weird Doc")
 
         assert info is None
 
     def test_handles_non_numeric_current_page(self):
-        from papers_workflow.remarkable_client import stat_document
+        from distillate.remarkable_client import stat_document
 
         output = (
             "ModifiedClient: 2026-02-07 08:30:00.000000000 +0000 UTC\n"
@@ -81,7 +81,7 @@ class TestStatDocument:
         fake_result = subprocess.CompletedProcess(
             args=[], returncode=0, stdout=output, stderr=""
         )
-        with patch("papers_workflow.remarkable_client._run", return_value=fake_result):
+        with patch("distillate.remarkable_client._run", return_value=fake_result):
             info = stat_document("Papers", "Bad Page")
 
         # Should still return modified_client, but no current_page
@@ -124,14 +124,14 @@ class TestPromoteSmartDemotion:
 
     def _run_promote(self, state, rm_mock, summarizer_mock):
         """Run _promote() with mocked dependencies."""
-        with patch("papers_workflow.remarkable_client.list_folder", rm_mock.list_folder), \
-             patch("papers_workflow.remarkable_client.stat_document", rm_mock.stat_document), \
-             patch("papers_workflow.remarkable_client.move_document", rm_mock.move_document), \
-             patch("papers_workflow.summarizer.suggest_papers", summarizer_mock.suggest_papers), \
-             patch("papers_workflow.state.State", return_value=state), \
-             patch("papers_workflow.state.acquire_lock", return_value=True), \
-             patch("papers_workflow.state.release_lock"):
-            from papers_workflow.main import _promote
+        with patch("distillate.remarkable_client.list_folder", rm_mock.list_folder), \
+             patch("distillate.remarkable_client.stat_document", rm_mock.stat_document), \
+             patch("distillate.remarkable_client.move_document", rm_mock.move_document), \
+             patch("distillate.summarizer.suggest_papers", summarizer_mock.suggest_papers), \
+             patch("distillate.state.State", return_value=state), \
+             patch("distillate.state.acquire_lock", return_value=True), \
+             patch("distillate.state.release_lock"):
+            from distillate.main import _promote
             _promote()
 
     def test_skips_demotion_when_user_started_reading(self):
@@ -212,14 +212,14 @@ class TestPromoteSmartDemotion:
 class TestSuggestPapersSonnet:
     """Verify suggest_papers passes the smart model to _call_claude."""
 
-    @patch("papers_workflow.summarizer._call_claude")
-    @patch("papers_workflow.summarizer.config")
+    @patch("distillate.summarizer._call_claude")
+    @patch("distillate.summarizer.config")
     def test_uses_smart_model(self, mock_config, mock_call):
         mock_config.ANTHROPIC_API_KEY = "test-key"
         mock_config.CLAUDE_SMART_MODEL = "claude-sonnet-4-5"
         mock_call.return_value = "1. Paper A — reason"
 
-        from papers_workflow.summarizer import suggest_papers
+        from distillate.summarizer import suggest_papers
 
         unread = [{"title": "Paper A", "tags": ["ml"], "paper_type": "", "uploaded_at": "2026-01-01"}]
         result = suggest_papers(unread, [])
@@ -257,14 +257,14 @@ class TestPromotedAtTimestamp:
         summarizer = MagicMock()
         summarizer.suggest_papers.return_value = "1. Paper A — great paper"
 
-        with patch("papers_workflow.remarkable_client.list_folder", rm.list_folder), \
-             patch("papers_workflow.remarkable_client.stat_document", rm.stat_document), \
-             patch("papers_workflow.remarkable_client.move_document", rm.move_document), \
-             patch("papers_workflow.summarizer.suggest_papers", summarizer.suggest_papers), \
-             patch("papers_workflow.state.State", return_value=state), \
-             patch("papers_workflow.state.acquire_lock", return_value=True), \
-             patch("papers_workflow.state.release_lock"):
-            from papers_workflow.main import _promote
+        with patch("distillate.remarkable_client.list_folder", rm.list_folder), \
+             patch("distillate.remarkable_client.stat_document", rm.stat_document), \
+             patch("distillate.remarkable_client.move_document", rm.move_document), \
+             patch("distillate.summarizer.suggest_papers", summarizer.suggest_papers), \
+             patch("distillate.state.State", return_value=state), \
+             patch("distillate.state.acquire_lock", return_value=True), \
+             patch("distillate.state.release_lock"):
+            from distillate.main import _promote
             _promote()
 
         assert "promoted_at" in doc_a

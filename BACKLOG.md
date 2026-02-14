@@ -23,6 +23,9 @@
 - ~~Metadata sync~~ — Auto-detects Zotero metadata changes (tags, authors, DOI, etc.) on each run. Updates state.json and Obsidian note frontmatter.
 - ~~Richer emails~~ — Digest: topic tag pills, highlight count, reading velocity, Obsidian deep links. Suggest: tag pills, velocity, queue health snapshot.
 
+### Email copy refresh
+Improve email templates: better copy for queue health, reading velocity, suggestion framing. Make the tone more engaging and the stats more actionable. Low priority — current emails work, just not polished.
+
 ### Cross-paper wiki-links
 At note creation time, find 2-3 existing papers with overlapping topic tags and add a `## Related Reading` section with `[[wiki-links]]`. No AI needed, just tag matching against state.json.
 

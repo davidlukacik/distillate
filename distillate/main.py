@@ -12,7 +12,7 @@ from pathlib import Path
 
 import requests
 
-log = logging.getLogger("papers_workflow")
+log = logging.getLogger("distillate")
 
 
 def _compute_engagement(
@@ -40,13 +40,13 @@ def _compute_engagement(
 
 def _reprocess(args: list[str]) -> None:
     """Re-run highlight extraction + PDF rendering on processed papers."""
-    from papers_workflow import config
-    from papers_workflow import remarkable_client
-    from papers_workflow import obsidian
-    from papers_workflow import renderer
-    from papers_workflow import summarizer
-    from papers_workflow import zotero_client
-    from papers_workflow.state import State
+    from distillate import config
+    from distillate import remarkable_client
+    from distillate import obsidian
+    from distillate import renderer
+    from distillate import summarizer
+    from distillate import zotero_client
+    from distillate.state import State
 
     config.setup_logging()
 
@@ -210,10 +210,10 @@ def _reprocess(args: list[str]) -> None:
 
 def _dry_run() -> None:
     """Preview what the workflow would do without making any changes."""
-    from papers_workflow import config
-    from papers_workflow import zotero_client
-    from papers_workflow import remarkable_client
-    from papers_workflow.state import State
+    from distillate import config
+    from distillate import zotero_client
+    from distillate import remarkable_client
+    from distillate.state import State
 
     config.setup_logging()
 
@@ -284,10 +284,10 @@ def _dry_run() -> None:
 
 def _backfill_s2() -> None:
     """Backfill Semantic Scholar data for papers that don't have it yet."""
-    from papers_workflow import config
-    from papers_workflow import semantic_scholar
-    from papers_workflow import zotero_client
-    from papers_workflow.state import State
+    from distillate import config
+    from distillate import semantic_scholar
+    from distillate import zotero_client
+    from distillate.state import State
 
     config.setup_logging()
 
@@ -333,11 +333,11 @@ def _themes(args: list[str]) -> None:
     """Generate a monthly research themes synthesis."""
     from datetime import datetime, timedelta, timezone
 
-    from papers_workflow import config
-    from papers_workflow import digest
-    from papers_workflow import obsidian
-    from papers_workflow import summarizer
-    from papers_workflow.state import State
+    from distillate import config
+    from distillate import digest
+    from distillate import obsidian
+    from distillate import summarizer
+    from distillate.state import State
 
     config.setup_logging()
 
@@ -409,7 +409,7 @@ def _sync_state() -> None:
     """Upload state.json to a private GitHub Gist for GitHub Actions."""
     import subprocess
 
-    from papers_workflow import config
+    from distillate import config
 
     config.setup_logging()
 
@@ -418,7 +418,7 @@ def _sync_state() -> None:
         log.error("STATE_GIST_ID not set — run: gh gist create state.json")
         return
 
-    from papers_workflow.state import STATE_PATH
+    from distillate.state import STATE_PATH
     if not STATE_PATH.exists():
         log.info("No state.json to sync")
         return
@@ -438,10 +438,10 @@ def _promote() -> None:
     """
     from datetime import datetime, timedelta, timezone
 
-    from papers_workflow import config
-    from papers_workflow import remarkable_client
-    from papers_workflow import summarizer
-    from papers_workflow.state import State, acquire_lock, release_lock
+    from distillate import config
+    from distillate import remarkable_client
+    from distillate import summarizer
+    from distillate.state import State, acquire_lock, release_lock
 
     config.setup_logging()
 
@@ -570,9 +570,12 @@ def _promote() -> None:
 
 def main():
     if "--register" in sys.argv:
-        from papers_workflow.remarkable_auth import register_interactive
+        from distillate.remarkable_auth import register_interactive
         register_interactive()
         return
+
+    from distillate import config
+    config.ensure_loaded()
 
     if "--reprocess" in sys.argv:
         idx = sys.argv.index("--reprocess")
@@ -580,7 +583,7 @@ def main():
         return
 
     if "--digest" in sys.argv:
-        from papers_workflow import digest
+        from distillate import digest
         digest.send_weekly_digest()
         return
 
@@ -593,7 +596,7 @@ def main():
         return
 
     if "--suggest" in sys.argv:
-        from papers_workflow import digest
+        from distillate import digest
         digest.send_suggestion()
         return
 
@@ -610,15 +613,15 @@ def main():
         _sync_state()
         return
 
-    from papers_workflow import config
-    from papers_workflow import zotero_client
-    from papers_workflow import remarkable_client
-    from papers_workflow import obsidian
-    from papers_workflow import notify
-    from papers_workflow import renderer
-    from papers_workflow import semantic_scholar
-    from papers_workflow import summarizer
-    from papers_workflow.state import State, acquire_lock, release_lock
+    from distillate import config
+    from distillate import zotero_client
+    from distillate import remarkable_client
+    from distillate import obsidian
+    from distillate import notify
+    from distillate import renderer
+    from distillate import semantic_scholar
+    from distillate import summarizer
+    from distillate.state import State, acquire_lock, release_lock
 
     config.setup_logging()
 

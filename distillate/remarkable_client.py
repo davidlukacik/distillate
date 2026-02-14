@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from papers_workflow import config
+from distillate import config
 
 log = logging.getLogger(__name__)
 

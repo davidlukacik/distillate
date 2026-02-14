@@ -11,7 +11,7 @@ import uuid
 
 import requests
 
-from papers_workflow.config import save_to_env
+from distillate.config import save_to_env
 
 _DEVICE_TOKEN_URL = "https://webapp-prod.cloud.remarkable.engineering/token/json/2/device/new"
 _USER_TOKEN_URL = "https://webapp-prod.cloud.remarkable.engineering/token/json/2/user/new"

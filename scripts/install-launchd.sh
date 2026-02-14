@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 #
-# Install macOS Launch Agents for papers-workflow.
+# Install macOS Launch Agents for distillate.
 # - Sync agent: runs every 15 minutes
 # - Promote agent: runs daily at 8:30am
 # Logs to ~/Library/Logs/.
 #
 set -euo pipefail
 
-LABEL="com.papers-workflow.sync"
+LABEL="com.distillate.sync"
 PLIST="$HOME/Library/LaunchAgents/${LABEL}.plist"
-LOG="$HOME/Library/Logs/papers-workflow.log"
+LOG="$HOME/Library/Logs/distillate.log"
 
 # Resolve repo root (parent of scripts/)
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-EXECUTABLE="${REPO_DIR}/.venv/bin/papers-workflow"
+EXECUTABLE="${REPO_DIR}/.venv/bin/distillate"
 
 # Verify prerequisites
 if [[ ! -x "$EXECUTABLE" ]]; then
@@ -96,7 +96,7 @@ echo "  tail -f $LOG                    # watch logs"
 echo "  launchctl unload $PLIST         # stop sync"
 
 # -- Auto-promote agent (daily at 8:30am) --
-PROMOTE_LABEL="com.papers-workflow.promote"
+PROMOTE_LABEL="com.distillate.promote"
 PROMOTE_PLIST="$HOME/Library/LaunchAgents/${PROMOTE_LABEL}.plist"
 
 # Unload existing promote agent if present

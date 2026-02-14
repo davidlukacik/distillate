@@ -64,8 +64,8 @@ This will prompt you to visit https://my.remarkable.com/device/browser/connect a
 1. Clone and install:
 
 ```bash
-git clone https://github.com/rlacombe/papers-workflow.git
-cd papers-workflow
+git clone https://github.com/rlacombe/distillate.git
+cd distillate
 uv venv --python 3.12
 source .venv/bin/activate
 uv pip install -e .
@@ -75,8 +75,8 @@ uv pip install -e .
 <summary>Without uv (pip only)</summary>
 
 ```bash
-git clone https://github.com/rlacombe/papers-workflow.git
-cd papers-workflow
+git clone https://github.com/rlacombe/distillate.git
+cd distillate
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -106,7 +106,7 @@ OBSIDIAN_VAULT_PATH=/path/to/your/vault
 Run the workflow once:
 
 ```bash
-papers-workflow
+distillate
 ```
 
 On first run, the script sets a watermark at the current Zotero library version. Only papers added *after* this point will be synced. This prevents flooding your reMarkable with your entire existing library.
@@ -128,28 +128,28 @@ On first run, the script sets a watermark at the current Zotero library version.
 
 ```bash
 # Re-run highlights + summary for a previously processed paper
-papers-workflow --reprocess "Paper Title"
+distillate --reprocess "Paper Title"
 
 # Preview what the next run would do (no changes made)
-papers-workflow --dry-run
+distillate --dry-run
 
 # Get 3 paper suggestions based on your reading history
-papers-workflow --suggest
+distillate --suggest
 
 # Move suggested papers to Papers/ root on reMarkable for easy access
-papers-workflow --promote
+distillate --promote
 
 # Send a weekly digest email with recent reading activity
-papers-workflow --digest
+distillate --digest
 
 # Generate a monthly research themes synthesis
-papers-workflow --themes 2026-02
+distillate --themes 2026-02
 
 # Backfill Semantic Scholar data for existing papers
-papers-workflow --backfill-s2
+distillate --backfill-s2
 
 # Push state.json to a GitHub Gist (for GitHub Actions)
-papers-workflow --sync-state
+distillate --sync-state
 ```
 
 ### How highlights work
@@ -194,7 +194,7 @@ The script auto-detects your repo path, venv, and `rmapi` location.
 
 ### Manual setup
 
-If you prefer to do it yourself, create `~/Library/LaunchAgents/com.papers-workflow.sync.plist`:
+If you prefer to do it yourself, create `~/Library/LaunchAgents/com.distillate.sync.plist`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -203,10 +203,10 @@ If you prefer to do it yourself, create `~/Library/LaunchAgents/com.papers-workf
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.papers-workflow.sync</string>
+    <string>com.distillate.sync</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/path/to/papers-workflow/.venv/bin/papers-workflow</string>
+        <string>/path/to/distillate/.venv/bin/distillate</string>
     </array>
     <key>StartInterval</key>
     <integer>900</integer>
@@ -216,9 +216,9 @@ If you prefer to do it yourself, create `~/Library/LaunchAgents/com.papers-workf
         <string>/usr/local/bin:/usr/bin:/bin</string>
     </dict>
     <key>StandardOutPath</key>
-    <string>/Users/you/Library/Logs/papers-workflow.log</string>
+    <string>/Users/you/Library/Logs/distillate.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/you/Library/Logs/papers-workflow.log</string>
+    <string>/Users/you/Library/Logs/distillate.log</string>
     <key>Nice</key>
     <integer>10</integer>
 </dict>
@@ -228,30 +228,30 @@ If you prefer to do it yourself, create `~/Library/LaunchAgents/com.papers-workf
 Then load it:
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.papers-workflow.sync.plist
+launchctl load ~/Library/LaunchAgents/com.distillate.sync.plist
 ```
 
 ### Scheduling with cron (Linux)
 
 ```
-*/15 * * * * /path/to/papers-workflow/.venv/bin/papers-workflow >> /var/log/papers-workflow.log 2>&1
+*/15 * * * * /path/to/distillate/.venv/bin/distillate >> /var/log/distillate.log 2>&1
 ```
 
 ### Useful commands
 
 ```bash
 # Check logs
-tail -f ~/Library/Logs/papers-workflow.log
+tail -f ~/Library/Logs/distillate.log
 
 # Run immediately (without waiting for the schedule)
-launchctl start com.papers-workflow.sync
+launchctl start com.distillate.sync
 
 # Stop the schedule
-launchctl unload ~/Library/LaunchAgents/com.papers-workflow.sync.plist
+launchctl unload ~/Library/LaunchAgents/com.distillate.sync.plist
 
 # Restart after editing the plist
-launchctl unload ~/Library/LaunchAgents/com.papers-workflow.sync.plist
-launchctl load ~/Library/LaunchAgents/com.papers-workflow.sync.plist
+launchctl unload ~/Library/LaunchAgents/com.distillate.sync.plist
+launchctl load ~/Library/LaunchAgents/com.distillate.sync.plist
 ```
 
 ## Configuration

@@ -11,7 +11,7 @@ from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
-from papers_workflow import config
+from distillate import config
 
 log = logging.getLogger(__name__)
 

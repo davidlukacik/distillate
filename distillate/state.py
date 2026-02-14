@@ -15,7 +15,12 @@ from typing import Any, Dict, List, Optional
 
 log = logging.getLogger(__name__)
 
-STATE_PATH = Path(__file__).resolve().parent.parent / "state.json"
+from distillate.config import CONFIG_DIR
+
+# State file: prefer CWD (for dev installs), then config dir
+STATE_PATH = CONFIG_DIR / "state.json"
+if not STATE_PATH.exists() and (Path.cwd() / "state.json").exists():
+    STATE_PATH = Path.cwd() / "state.json"
 LOCK_PATH = STATE_PATH.with_suffix(".lock")
 
 _DEFAULT_STATE = {

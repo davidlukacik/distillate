@@ -18,12 +18,12 @@ class TestComputeEngagement:
     """Tests for main._compute_engagement()."""
 
     def test_no_highlights(self):
-        from papers_workflow.main import _compute_engagement
+        from distillate.main import _compute_engagement
         assert _compute_engagement(None, 10) == 0
         assert _compute_engagement({}, 10) == 0
 
     def test_single_highlight_short_paper(self):
-        from papers_workflow.main import _compute_engagement
+        from distillate.main import _compute_engagement
         # 1 highlight, 1 page highlighted, 5-page paper
         highlights = {1: ["some text"]}
         score = _compute_engagement(highlights, 5)
@@ -34,7 +34,7 @@ class TestComputeEngagement:
         assert score == 16
 
     def test_dense_highlights(self):
-        from papers_workflow.main import _compute_engagement
+        from distillate.main import _compute_engagement
         # 25 highlights across 9 pages, 10-page paper
         highlights = {i: [f"h{j}" for j in range(3)] for i in range(1, 9)}
         highlights[9] = ["extra"]  # 9 pages, 25 highlights total
@@ -46,7 +46,7 @@ class TestComputeEngagement:
         assert score == 96
 
     def test_zero_page_count_uses_fallback(self):
-        from papers_workflow.main import _compute_engagement
+        from distillate.main import _compute_engagement
         # page_count=0 should use max(0,1)=1
         highlights = {1: ["a", "b"]}
         score = _compute_engagement(highlights, 0)
@@ -54,14 +54,14 @@ class TestComputeEngagement:
         assert score <= 100
 
     def test_max_score_is_100(self):
-        from papers_workflow.main import _compute_engagement
+        from distillate.main import _compute_engagement
         # Lots of highlights on many pages
         highlights = {i: [f"h{j}" for j in range(5)] for i in range(1, 21)}
         score = _compute_engagement(highlights, 20)
         assert score == 100
 
     def test_moderate_engagement(self):
-        from papers_workflow.main import _compute_engagement
+        from distillate.main import _compute_engagement
         # 10 highlights across 5 pages in a 20-page paper
         highlights = {i: ["text", "more"] for i in range(1, 6)}
         score = _compute_engagement(highlights, 20)
@@ -72,7 +72,7 @@ class TestComputeEngagement:
         assert score == 40
 
     def test_skimmed_paper(self):
-        from papers_workflow.main import _compute_engagement
+        from distillate.main import _compute_engagement
         # 5 highlights across 3 pages in an 8-page paper (skimmed middle)
         highlights = {1: ["intro"], 2: ["method"], 8: ["conclusion", "result", "end"]}
         score = _compute_engagement(highlights, 8)
@@ -92,7 +92,7 @@ class TestPageCountParsing:
     """Tests for PageCount parsing in stat_document."""
 
     def test_parses_page_count(self):
-        from papers_workflow.remarkable_client import stat_document
+        from distillate.remarkable_client import stat_document
 
         output = (
             "ModifiedClient: 2026-02-07 08:30:00.000000000 +0000 UTC\n"
@@ -102,14 +102,14 @@ class TestPageCountParsing:
         fake_result = subprocess.CompletedProcess(
             args=[], returncode=0, stdout=output, stderr=""
         )
-        with patch("papers_workflow.remarkable_client._run", return_value=fake_result):
+        with patch("distillate.remarkable_client._run", return_value=fake_result):
             info = stat_document("Papers", "My Paper")
 
         assert info is not None
         assert info["page_count"] == 42
 
     def test_handles_missing_page_count(self):
-        from papers_workflow.remarkable_client import stat_document
+        from distillate.remarkable_client import stat_document
 
         output = (
             "ModifiedClient: 2026-02-07 08:30:00.000000000 +0000 UTC\n"
@@ -118,14 +118,14 @@ class TestPageCountParsing:
         fake_result = subprocess.CompletedProcess(
             args=[], returncode=0, stdout=output, stderr=""
         )
-        with patch("papers_workflow.remarkable_client._run", return_value=fake_result):
+        with patch("distillate.remarkable_client._run", return_value=fake_result):
             info = stat_document("Papers", "My Paper")
 
         assert info is not None
         assert "page_count" not in info
 
     def test_handles_non_numeric_page_count(self):
-        from papers_workflow.remarkable_client import stat_document
+        from distillate.remarkable_client import stat_document
 
         output = (
             "ModifiedClient: 2026-02-07 08:30:00.000000000 +0000 UTC\n"
@@ -134,7 +134,7 @@ class TestPageCountParsing:
         fake_result = subprocess.CompletedProcess(
             args=[], returncode=0, stdout=output, stderr=""
         )
-        with patch("papers_workflow.remarkable_client._run", return_value=fake_result):
+        with patch("distillate.remarkable_client._run", return_value=fake_result):
             info = stat_document("Papers", "My Paper")
 
         assert info is not None
@@ -163,14 +163,14 @@ class TestGetPageCount:
     """Tests for renderer.get_page_count()."""
 
     def test_counts_pages_from_content(self, tmp_path):
-        from papers_workflow.renderer import get_page_count
+        from distillate.renderer import get_page_count
 
         zip_path = tmp_path / "test.zip"
         zip_path.write_bytes(_make_zip_with_pages(15))
         assert get_page_count(zip_path) == 15
 
     def test_returns_zero_for_no_content(self, tmp_path):
-        from papers_workflow.renderer import get_page_count
+        from distillate.renderer import get_page_count
 
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
@@ -180,14 +180,14 @@ class TestGetPageCount:
         assert get_page_count(zip_path) == 0
 
     def test_returns_zero_for_invalid_file(self, tmp_path):
-        from papers_workflow.renderer import get_page_count
+        from distillate.renderer import get_page_count
 
         zip_path = tmp_path / "bad.zip"
         zip_path.write_bytes(b"not a zip")
         assert get_page_count(zip_path) == 0
 
     def test_legacy_pages_key(self, tmp_path):
-        from papers_workflow.renderer import get_page_count
+        from distillate.renderer import get_page_count
 
         buf = io.BytesIO()
         content = {"pages": ["uuid-1", "uuid-2", "uuid-3"]}
@@ -207,7 +207,7 @@ class TestTitleMatching:
     """Tests for bidirectional title matching in _build_suggestion_body."""
 
     def _build_body(self, suggestion_text, unread):
-        from papers_workflow.digest import _build_suggestion_body
+        from distillate.digest import _build_suggestion_body
 
         state = MagicMock()
         state.documents_with_status.return_value = []
@@ -282,28 +282,28 @@ class TestTitleStripping:
     """Tests for journal suffix stripping in extract_metadata."""
 
     def test_strips_pipe_journal(self):
-        from papers_workflow.zotero_client import extract_metadata
+        from distillate.zotero_client import extract_metadata
 
         item = {"data": {"title": "A cool finding | Science", "creators": []}}
         meta = extract_metadata(item)
         assert meta["title"] == "A cool finding"
 
     def test_preserves_title_without_pipe(self):
-        from papers_workflow.zotero_client import extract_metadata
+        from distillate.zotero_client import extract_metadata
 
         item = {"data": {"title": "Normal Paper Title", "creators": []}}
         meta = extract_metadata(item)
         assert meta["title"] == "Normal Paper Title"
 
     def test_strips_only_last_pipe(self):
-        from papers_workflow.zotero_client import extract_metadata
+        from distillate.zotero_client import extract_metadata
 
         item = {"data": {"title": "A | B | Nature", "creators": []}}
         meta = extract_metadata(item)
         assert meta["title"] == "A | B"
 
     def test_strips_author_prefix_lastname(self):
-        from papers_workflow.zotero_client import extract_metadata
+        from distillate.zotero_client import extract_metadata
 
         item = {"data": {
             "title": "Dario Amodei — Machines of Loving Grace",
@@ -313,7 +313,7 @@ class TestTitleStripping:
         assert meta["title"] == "Machines of Loving Grace"
 
     def test_strips_author_prefix_full_name(self):
-        from papers_workflow.zotero_client import extract_metadata
+        from distillate.zotero_client import extract_metadata
 
         item = {"data": {
             "title": "John Smith — A Great Paper",
@@ -323,7 +323,7 @@ class TestTitleStripping:
         assert meta["title"] == "A Great Paper"
 
     def test_preserves_emdash_when_not_author(self):
-        from papers_workflow.zotero_client import extract_metadata
+        from distillate.zotero_client import extract_metadata
 
         item = {"data": {
             "title": "Methods — Results and Discussion",
@@ -333,7 +333,7 @@ class TestTitleStripping:
         assert meta["title"] == "Methods — Results and Discussion"
 
     def test_preserves_emdash_no_creators(self):
-        from papers_workflow.zotero_client import extract_metadata
+        from distillate.zotero_client import extract_metadata
 
         item = {"data": {
             "title": "Something — Other Thing",
@@ -352,9 +352,9 @@ class TestEngagementInNote:
     """Tests for engagement field in Obsidian note frontmatter."""
 
     def test_engagement_in_frontmatter(self, tmp_path):
-        from papers_workflow.obsidian import create_paper_note
+        from distillate.obsidian import create_paper_note
 
-        with patch("papers_workflow.obsidian._read_dir", return_value=tmp_path):
+        with patch("distillate.obsidian._read_dir", return_value=tmp_path):
             path = create_paper_note(
                 title="Test Paper",
                 authors=["Author"],
@@ -368,9 +368,9 @@ class TestEngagementInNote:
         assert "engagement: 78" in content
 
     def test_no_engagement_when_zero(self, tmp_path):
-        from papers_workflow.obsidian import create_paper_note
+        from distillate.obsidian import create_paper_note
 
-        with patch("papers_workflow.obsidian._read_dir", return_value=tmp_path):
+        with patch("distillate.obsidian._read_dir", return_value=tmp_path):
             path = create_paper_note(
                 title="Test Paper Zero",
                 authors=["Author"],
@@ -393,7 +393,7 @@ class TestEngagementInDigest:
     """Tests for engagement and stats in digest _paper_html."""
 
     def test_paper_html_with_engagement(self):
-        from papers_workflow.digest import _paper_html
+        from distillate.digest import _paper_html
 
         paper = {
             "title": "Test Paper",
@@ -411,7 +411,7 @@ class TestEngagementInDigest:
         assert "Feb 10" in html
 
     def test_paper_html_without_engagement(self):
-        from papers_workflow.digest import _paper_html
+        from distillate.digest import _paper_html
 
         paper = {
             "title": "Old Paper",
@@ -433,14 +433,14 @@ class TestEngagementInDigest:
 class TestEngagementInSuggestions:
     """Tests for engagement in suggest_papers prompt."""
 
-    @patch("papers_workflow.summarizer._call_claude")
-    @patch("papers_workflow.summarizer.config")
+    @patch("distillate.summarizer._call_claude")
+    @patch("distillate.summarizer.config")
     def test_engagement_in_prompt(self, mock_config, mock_call):
         mock_config.ANTHROPIC_API_KEY = "test-key"
         mock_config.CLAUDE_SMART_MODEL = "claude-sonnet-4-5"
         mock_call.return_value = "1. Paper A — reason"
 
-        from papers_workflow.summarizer import suggest_papers
+        from distillate.summarizer import suggest_papers
 
         unread = [{"title": "Paper A", "tags": ["ml"], "paper_type": "", "uploaded_at": "2026-01-01"}]
         recent = [{"title": "Read Paper", "tags": ["dl"], "summary": "Good.", "engagement": 85}]
