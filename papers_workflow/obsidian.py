@@ -212,8 +212,8 @@ def _render_highlights_md(
     sections = []
     for page_num in sorted(highlights.keys()):
         items = highlights[page_num]
-        sections.append(f"### Page {page_num}\n")
-        sections.append("\n".join(f"- \"{h}\"" for h in items))
+        bullet_list = "\n".join(f"- \"{h}\"" for h in items)
+        sections.append(f"### Page {page_num}\n\n{bullet_list}")
     return "\n\n".join(sections)
 
 

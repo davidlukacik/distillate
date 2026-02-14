@@ -22,6 +22,7 @@ Save paper in Zotero  ──▶  PDF uploaded to reMarkable Papers/Inbox
 - A [Zotero](https://www.zotero.org/) account with the browser connector
 - A [reMarkable](https://remarkable.com/) tablet
 - (Optional) An [Obsidian](https://obsidian.md/) vault
+- (Optional) An [Anthropic API key](https://console.anthropic.com/) for AI summaries
 
 ### Install rmapi
 
@@ -114,14 +115,42 @@ On first run, the script sets a watermark at the current Zotero library version.
 
 1. **Polls Zotero** for new papers (added since last run)
 2. Downloads their PDFs and uploads to reMarkable's `Papers/Inbox` folder
-3. Tags them `inbox` in Zotero
+3. Tags them `inbox` in Zotero and enriches with Semantic Scholar citation data
 4. **Checks reMarkable** `Papers/Read` folder for papers you've finished reading
 5. Extracts highlighted text from the reMarkable document
 6. Renders an annotated PDF with highlights and saves it to the Obsidian vault
 7. Deletes the original PDF from Zotero to free storage (metadata is kept)
-8. Creates an Obsidian note with metadata, highlights, AI summary, and an embedded PDF link
-9. Moves processed documents to `Papers/Vault` on reMarkable
-10. Sends a macOS notification summarizing what happened
+8. Creates an Obsidian note with metadata, highlights, AI summary (paragraph + key learnings), and an embedded PDF
+9. Updates the Reading Log and tags the paper `read` in Zotero
+10. Moves processed documents to `Papers/Vault` on reMarkable
+
+### Additional commands
+
+```bash
+# Re-run highlights + summary for a previously processed paper
+papers-workflow --reprocess "Paper Title"
+
+# Preview what the next run would do (no changes made)
+papers-workflow --dry-run
+
+# Get 3 paper suggestions based on your reading history
+papers-workflow --suggest
+
+# Move suggested papers to Papers/ root on reMarkable for easy access
+papers-workflow --promote
+
+# Send a weekly digest email with recent reading activity
+papers-workflow --digest
+
+# Generate a monthly research themes synthesis
+papers-workflow --themes 2026-02
+
+# Backfill Semantic Scholar data for existing papers
+papers-workflow --backfill-s2
+
+# Push state.json to a GitHub Gist (for GitHub Actions)
+papers-workflow --sync-state
+```
 
 ### How highlights work
 
@@ -132,6 +161,16 @@ The script:
 2. Parses the `.rm` files using [rmscene](https://github.com/ricklupton/rmscene) to extract highlighted text
 3. Searches for that text in the original PDF using [PyMuPDF](https://pymupdf.readthedocs.io/) and adds highlight annotations at the matching locations
 4. Saves the annotated PDF to the Obsidian vault and writes the highlight text to the Obsidian note
+
+### AI summaries
+
+With an Anthropic API key set, the script generates for each paper:
+
+- A **one-liner** explaining why the paper matters (shown as a blockquote and in the Reading Log)
+- A **paragraph summary** describing what the paper does, its methods, and findings
+- **Key learnings** — 4-6 bullet points distilling the most important insights, ending with a "so what"
+
+Summaries use Claude Sonnet for quality. Paper suggestions and monthly themes use Claude Haiku for efficiency.
 
 ## Scheduling (macOS)
 
@@ -223,6 +262,10 @@ All settings are in `.env`. See [.env.example](.env.example) for the full list.
 | `ZOTERO_TAG_READ` | `read` | Zotero tag for fully read papers |
 | `OBSIDIAN_VAULT_PATH` | *(empty)* | Path to Obsidian vault (disables Obsidian if unset) |
 | `OBSIDIAN_PAPERS_FOLDER` | `Papers` | Subfolder for paper notes |
+| `ANTHROPIC_API_KEY` | *(empty)* | Anthropic API key for AI summaries (falls back to abstract if unset) |
+| `CLAUDE_SMART_MODEL` | `claude-sonnet-4-5` | Model for summaries and key learnings |
+| `CLAUDE_FAST_MODEL` | `claude-haiku-4-5` | Model for suggestions and themes |
+| `RESEND_API_KEY` | *(empty)* | Resend API key for email digest/suggestions |
 
 ## Your reading workflow
 
