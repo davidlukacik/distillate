@@ -613,7 +613,6 @@ def main():
         _sync_state()
         return
 
-    from distillate import config
     from distillate import zotero_client
     from distillate import remarkable_client
     from distillate import obsidian

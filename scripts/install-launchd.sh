@@ -60,6 +60,9 @@ cat > "$PLIST" <<EOF
         <string>${EXECUTABLE}</string>
     </array>
 
+    <key>WorkingDirectory</key>
+    <string>${REPO_DIR}</string>
+
     <key>StartInterval</key>
     <integer>900</integer>
 
@@ -120,6 +123,9 @@ cat > "$PROMOTE_PLIST" <<EOF
         <string>${EXECUTABLE}</string>
         <string>--promote</string>
     </array>
+
+    <key>WorkingDirectory</key>
+    <string>${REPO_DIR}</string>
 
     <key>StartInterval</key>
     <integer>28800</integer>
