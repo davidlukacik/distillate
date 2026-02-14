@@ -31,11 +31,8 @@ def send_weekly_digest(days: int = 7) -> None:
         log.info("No papers processed in the last %d days, skipping digest", days)
         return
 
-    read = [p for p in papers if p.get("reading_status", "read") == "read"]
-    leafed = [p for p in papers if p.get("reading_status") == "leafed"]
-
     subject = _build_subject()
-    body = _build_body(read, leafed)
+    body = _build_body(papers)
 
     resend.api_key = config.RESEND_API_KEY
     result = resend.Emails.send({
@@ -78,26 +75,18 @@ def _paper_html(p):
     )
 
 
-def _build_body(read, leafed):
+def _build_body(papers):
     lines = [
         "<html><body style='font-family: sans-serif; max-width: 600px; "
         "margin: 0 auto; padding: 20px; color: #333;'>",
+        "<p>Papers I read this week:</p>",
+        "<ul style='padding-left: 20px;'>",
     ]
 
-    if read:
-        lines.append("<p>Papers I read this week:</p>")
-        lines.append("<ul style='padding-left: 20px;'>")
-        for p in read:
-            lines.append(_paper_html(p))
-        lines.append("</ul>")
+    for p in papers:
+        lines.append(_paper_html(p))
 
-    if leafed:
-        lines.append("<p>I also leafed through the following papers:</p>")
-        lines.append("<ul style='padding-left: 20px;'>")
-        for p in leafed:
-            lines.append(_paper_html(p))
-        lines.append("</ul>")
-
+    lines.append("</ul>")
     lines.append("</body></html>")
     return "\n".join(lines)
 

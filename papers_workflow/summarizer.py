@@ -61,30 +61,6 @@ def summarize_read_paper(
     return _fallback_read(title, abstract, highlights)
 
 
-def summarize_leafed_paper(
-    title: str,
-    abstract: str = "",
-) -> str:
-    """Generate a one-sentence summary for a leafed-through paper.
-
-    Returns a single sentence for both the reading log and the note.
-    """
-    if not config.ANTHROPIC_API_KEY:
-        return _fallback_leafed(title, abstract)
-
-    if not abstract:
-        return f"Leafed through *{title}*."
-
-    prompt = (
-        f"Write one or two short sentences stating the core idea of this paper. "
-        f"Never start with 'this paper' or 'the authors' — just state the idea "
-        f"directly. Focus on the single most important takeaway.\n\n"
-        f"Paper: {title}\n\nAbstract: {abstract}"
-    )
-
-    return _call_claude(prompt) or _fallback_leafed(title, abstract)
-
-
 def extract_tags(title: str, abstract: str = "") -> Tuple[List[str], str]:
     """Extract topic tags and paper type from a paper's abstract.
 
@@ -262,9 +238,3 @@ def _fallback_read(
     return f"Read *{title}*.", f"Read *{title}*."
 
 
-def _fallback_leafed(title: str, abstract: str) -> str:
-    """Fallback summary when Claude API is unavailable."""
-    if abstract:
-        sentences = abstract.replace("\n", " ").split(". ")
-        return sentences[0].strip() + ("." if not sentences[0].strip().endswith(".") else "")
-    return f"Leafed through *{title}*."
