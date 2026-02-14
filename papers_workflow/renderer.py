@@ -26,6 +26,26 @@ _HIGHLIGHT_OPACITY = 0.35
 _HIGHLIGHT_TRIM = 0.20  # shrink quads vertically by this fraction per side
 
 
+def get_page_count(zip_path: Path) -> int:
+    """Return the total page count from a reMarkable document bundle.
+
+    Parses the .content file to count pages. Returns 0 on failure.
+    """
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            content_files = [n for n in zf.namelist() if n.endswith(".content")]
+            if not content_files:
+                return 0
+            content_data = json.loads(zf.read(content_files[0]))
+            page_ids = content_data.get("cPages", {}).get("pages", [])
+            if not page_ids:
+                page_ids = content_data.get("pages", [])
+            return len(page_ids)
+    except Exception:
+        log.debug("Could not get page count from %s", zip_path, exc_info=True)
+        return 0
+
+
 def extract_highlights(zip_path: Path) -> Dict[int, List[str]]:
     """Extract highlighted text strings from a reMarkable document bundle.
 

@@ -97,18 +97,39 @@ def _tag_pills_html(tags: list) -> str:
 
 
 def _reading_velocity_html(state: State) -> str:
-    """Render reading velocity: 'Read N papers this week, M this month.'"""
+    """Render reading velocity with highlight stats."""
     now = datetime.now(timezone.utc)
     # Use start-of-day so "this week" covers full calendar days
     week_ago = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=7)
     month_ago = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=30)
 
-    week_count = len(state.documents_processed_since(week_ago.isoformat()))
-    month_count = len(state.documents_processed_since(month_ago.isoformat()))
+    week_papers = state.documents_processed_since(week_ago.isoformat())
+    month_papers = state.documents_processed_since(month_ago.isoformat())
+    week_count = len(week_papers)
+    month_count = len(month_papers)
+
+    # Aggregate stats for the week
+    week_total_pages = sum(d.get("page_count", 0) for d in week_papers)
+    week_highlights = sum(d.get("highlight_count", 0) for d in week_papers)
+    week_hl_pages = sum(d.get("highlighted_pages", 0) for d in week_papers)
+    week_words = sum(d.get("highlight_word_count", 0) for d in week_papers)
+
+    stats_parts = []
+    if week_total_pages:
+        stats_parts.append(f"{week_total_pages} pages read")
+    if week_highlights:
+        stats_parts.append(f"{week_highlights} highlights")
+    if week_hl_pages:
+        stats_parts.append(
+            f"{week_hl_pages} page{'s' if week_hl_pages != 1 else ''} annotated"
+        )
+    if week_words:
+        stats_parts.append(f"{week_words} words captured")
+    stats_html = f" ({', '.join(stats_parts)})" if stats_parts else ""
 
     return (
         f'<p style="color:#666;font-size:14px;margin-bottom:16px;">'
-        f'Read {week_count} paper{"s" if week_count != 1 else ""} this week, '
+        f'Read {week_count} paper{"s" if week_count != 1 else ""} this week{stats_html}, '
         f'{month_count} this month.</p>'
     )
 
@@ -233,6 +254,9 @@ def _paper_html(p):
     meta = p.get("metadata", {})
     tags = meta.get("tags", [])
     highlight_count = p.get("highlight_count", 0)
+    engagement = p.get("engagement", 0)
+    highlight_word_count = p.get("highlight_word_count", 0)
+    processed_at = p.get("processed_at", "")
 
     # Title with Obsidian deep link
     from papers_workflow import obsidian
@@ -245,15 +269,36 @@ def _paper_html(p):
     else:
         title_html = f"<strong>{title}</strong>"
 
-    hl_html = ""
+    # Date read (e.g. "Feb 10")
+    date_html = ""
+    if processed_at:
+        try:
+            dt = datetime.fromisoformat(processed_at)
+            date_html = (
+                f' <span style="color:#999;font-size:12px;">'
+                f'{dt.strftime("%b %-d")}</span>'
+            )
+        except (ValueError, TypeError):
+            pass
+
+    # Stats badge: engagement + highlights + word count
+    stats_parts = []
+    if engagement:
+        stats_parts.append(f"{engagement}% engaged")
     if highlight_count:
-        hl_html = (
+        stats_parts.append(
+            f'{highlight_count} highlight{"s" if highlight_count != 1 else ""}'
+        )
+    if highlight_word_count:
+        stats_parts.append(f"{highlight_word_count} words")
+    stats_html = ""
+    if stats_parts:
+        stats_html = (
             f' <span style="color:#999;font-size:12px;">'
-            f'({highlight_count} highlight{"s" if highlight_count != 1 else ""})</span>'
+            f'({", ".join(stats_parts)})</span>'
         )
 
     summary_html = f" &mdash; {summary}" if summary else ""
-    pills_html = "" if tags else ""
     url_html = (
         f'<br><a href="{url}" style="color:#666;font-size:13px;">{url}</a>'
         if url else ""
@@ -261,7 +306,7 @@ def _paper_html(p):
 
     return (
         f"<li style='margin-bottom: 14px;'>"
-        f"{title_html}{hl_html}{summary_html}{pills_html}{url_html}"
+        f"{title_html}{date_html}{stats_html}{summary_html}{url_html}"
         f"</li>"
     )
 
@@ -327,6 +372,7 @@ def send_suggestion() -> None:
             "title": doc["title"],
             "tags": meta.get("tags", []),
             "summary": doc.get("summary", ""),
+            "engagement": doc.get("engagement", 0),
         })
 
     # Ask Claude
@@ -342,8 +388,10 @@ def send_suggestion() -> None:
         clean = line.strip().replace("**", "")
         if not clean:
             continue
+        clean_lower = clean.lower()
+        suggestion_title = re.sub(r"^\d+\.\s*", "", clean_lower).rstrip(" —-").split(" — ")[0].strip()
         for title_lower, key in title_to_key.items():
-            if title_lower in clean.lower() and key not in pending:
+            if (title_lower in clean_lower or suggestion_title in title_lower) and key not in pending:
                 pending.append(key)
                 break
     if pending:
@@ -436,17 +484,22 @@ def _build_suggestion_body(suggestion_text, unread, state: State):
         queue_num = m.group(1)
         rest = m.group(2)
 
-        # Match title to a known paper
+        # Match title to a known paper (bidirectional: handles journal suffixes)
         url = ""
         tags = []
         matched_title = ""
+        rest_lower = rest.lower()
+        suggestion_title = rest_lower.rstrip(" —-").split(" — ")[0].strip()
         for title_lower in tags_lookup:
-            if title_lower in rest.lower():
+            if title_lower in rest_lower or suggestion_title in title_lower:
                 url = url_lookup.get(title_lower, "")
                 tags = tags_lookup.get(title_lower, [])
                 # Find the original-cased title in rest
-                idx = rest.lower().index(title_lower)
-                matched_title = rest[idx:idx + len(title_lower)]
+                idx = rest_lower.find(title_lower)
+                if idx >= 0:
+                    matched_title = rest[idx:idx + len(title_lower)]
+                else:
+                    matched_title = rest[:len(suggestion_title)]
                 break
 
         # Split into title and reason at " — " or " - "

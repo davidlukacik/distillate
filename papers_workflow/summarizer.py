@@ -136,7 +136,9 @@ def suggest_papers(
     for p in recent_reads[:10]:
         tags = ", ".join(p.get("tags", []))
         summary = p.get("summary", "")
-        reads_lines.append(f"- [read] {p['title']} [{tags}] — {summary}")
+        engagement = p.get("engagement", 0)
+        eng_str = f", engagement:{engagement}%" if engagement else ""
+        reads_lines.append(f"- [read{eng_str}] {p['title']} [{tags}] — {summary}")
 
     # Build unread queue
     from datetime import datetime, timezone

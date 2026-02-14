@@ -44,7 +44,7 @@ def ensure_folders() -> None:
     for folder in (
         config.RM_FOLDER_INBOX,
         config.RM_FOLDER_READ,
-        config.RM_FOLDER_VAULT,
+        config.RM_FOLDER_SAVED,
     ):
         _ensure_folder(folder)
 
@@ -182,6 +182,11 @@ def stat_document(folder: str, doc_name: str) -> Optional[Dict[str, Any]]:
         if "CurrentPage:" in line:
             try:
                 info["current_page"] = int(line.split(":", 1)[1].strip())
+            except ValueError:
+                pass
+        if "PageCount:" in line:
+            try:
+                info["page_count"] = int(line.split(":", 1)[1].strip())
             except ValueError:
                 pass
     return info if info else None

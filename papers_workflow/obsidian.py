@@ -19,7 +19,7 @@ _DATAVIEW_TEMPLATE = """\
 # Papers List
 
 ```dataview
-TABLE date_added as "Added", date_read as "Completed", join(authors, ", ") as "Authors"
+TABLE date_added as "Added", date_read as "Read", default(engagement, "-") as "Eng%", default(highlighted_pages, "-") as "Pages", default(highlight_word_count, "-") as "Words"
 FROM "{folder}"
 WHERE tags AND contains(tags, "read")
 SORT date_read DESC
@@ -33,7 +33,7 @@ _STATS_TEMPLATE = """\
 ## Monthly Breakdown
 
 ```dataview
-TABLE length(rows) as "Papers"
+TABLE length(rows) as "Papers", sum(map(rows, (r) => default(r.page_count, 0))) as "Pages Read", round(sum(map(rows, (r) => default(r.engagement, 0))) / length(rows)) as "Avg Eng%", sum(map(rows, (r) => default(r.highlight_word_count, 0))) as "Words Highlighted"
 FROM "{folder}"
 WHERE tags AND contains(tags, "read")
 GROUP BY dateformat(date_read, "yyyy-MM") as "Month"
@@ -43,20 +43,30 @@ SORT rows[0].date_read DESC
 ## Top Topics
 
 ```dataview
-TABLE length(rows) as "Papers"
+TABLE length(rows) as "Papers", round(sum(map(rows, (r) => default(r.engagement, 0))) / length(rows)) as "Avg Eng%"
 FROM "{folder}"
 WHERE tags AND contains(tags, "read")
 FLATTEN tags as tag
 WHERE tag != "paper" AND tag != "read"
 GROUP BY tag as "Topic"
-SORT length(rows) DESC
+SORT round(sum(map(rows, (r) => default(r.engagement, 0))) / length(rows)) DESC
 LIMIT 15
+```
+
+## Most Engaged
+
+```dataview
+TABLE date_read as "Read", engagement as "Eng%", highlighted_pages as "Pages", highlight_word_count as "Words"
+FROM "{folder}"
+WHERE tags AND contains(tags, "read") AND engagement > 0
+SORT engagement DESC
+LIMIT 10
 ```
 
 ## Recent Completions
 
 ```dataview
-TABLE date_read as "Completed", join(authors, ", ") as "Authors"
+TABLE date_read as "Read", default(engagement, "-") as "Eng%"
 FROM "{folder}"
 WHERE tags AND contains(tags, "read")
 SORT date_read DESC
@@ -236,6 +246,10 @@ def create_paper_note(
     citation_count: int = 0,
     key_learnings: Optional[List[str]] = None,
     date_read: str = "",
+    engagement: int = 0,
+    highlighted_pages: int = 0,
+    highlight_word_count: int = 0,
+    page_count: int = 0,
 ) -> Optional[Path]:
     """Create an Obsidian note for a read paper in the Read subfolder.
 
@@ -275,6 +289,14 @@ def create_paper_note(
         optional += f'\nurl: "{_escape_yaml(url)}"'
     if citation_count:
         optional += f"\ncitation_count: {citation_count}"
+    if engagement:
+        optional += f"\nengagement: {engagement}"
+    if highlighted_pages:
+        optional += f"\nhighlighted_pages: {highlighted_pages}"
+    if highlight_word_count:
+        optional += f"\nhighlight_word_count: {highlight_word_count}"
+    if page_count:
+        optional += f"\npage_count: {page_count}"
     pdf_yaml = f'\npdf: "[[{pdf_filename}]]"' if pdf_filename else ""
 
     # Optional PDF embed in note body

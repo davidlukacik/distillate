@@ -403,6 +403,9 @@ def extract_metadata(item: Dict[str, Any]) -> Dict[str, Any]:
     """Extract metadata from a Zotero item."""
     data = item.get("data", {})
     title = data.get("title", "Untitled")
+    # Strip journal suffix added by some Zotero translators (e.g. "Title | Science")
+    if " | " in title:
+        title = title.rsplit(" | ", 1)[0].strip()
     creators = data.get("creators", [])
     authors = [
         c.get("lastName") or c.get("name", "Unknown")

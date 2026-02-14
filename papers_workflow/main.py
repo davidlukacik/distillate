@@ -5,6 +5,7 @@ Designed to be run on a schedule via cron or launchd.
 """
 
 import logging
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -12,6 +13,29 @@ from pathlib import Path
 import requests
 
 log = logging.getLogger("papers_workflow")
+
+
+def _compute_engagement(
+    highlights: dict | None, page_count: int,
+) -> int:
+    """Compute an engagement score (0–100) from highlights and page count.
+
+    Components (weighted):
+      - Highlight density (30%): highlights per page, saturates at 1 per page
+      - Page coverage (40%): fraction of pages with at least one highlight
+      - Highlight volume (30%): absolute count, saturates at 20
+    """
+    if not highlights:
+        return 0
+    highlight_count = sum(len(v) for v in highlights.values())
+    highlighted_pages = len(highlights)
+    pages = max(page_count, 1)
+
+    density = min(highlight_count / pages, 1.0)
+    coverage = min(highlighted_pages / pages, 1.0)
+    volume = min(highlight_count / 20, 1.0)
+
+    return round((density * 0.3 + coverage * 0.4 + volume * 0.3) * 100)
 
 
 def _reprocess(args: list[str]) -> None:
@@ -56,7 +80,7 @@ def _reprocess(args: list[str]) -> None:
             pdf_path = Path(tmpdir) / f"{rm_name}.pdf"
 
             bundle_ok = remarkable_client.download_document_bundle_to(
-                config.RM_FOLDER_VAULT, rm_name, zip_path,
+                config.RM_FOLDER_SAVED, rm_name, zip_path,
             )
 
             if not bundle_ok or not zip_path.exists():
@@ -64,6 +88,7 @@ def _reprocess(args: list[str]) -> None:
                 continue
 
             highlights = renderer.extract_highlights(zip_path)
+            page_count = renderer.get_page_count(zip_path)
             render_ok = renderer.render_annotated_pdf(zip_path, pdf_path)
 
             if render_ok and pdf_path.exists():
@@ -75,6 +100,10 @@ def _reprocess(args: list[str]) -> None:
                 log.warning("Could not render annotated PDF for '%s'", title)
                 saved = None
                 pdf_filename = None
+
+            # Compute engagement score
+            engagement = _compute_engagement(highlights, page_count)
+            doc["engagement"] = engagement
 
             # Update linked attachment to point to annotated PDF
             linked = zotero_client.get_linked_attachment(item_key)
@@ -123,6 +152,11 @@ def _reprocess(args: list[str]) -> None:
             obsidian.ensure_dataview_note()
             obsidian.ensure_stats_note()
             obsidian.delete_paper_note(title)
+            # Compute highlight stats for note and state
+            flat_hl = [h for hl in (highlights or {}).values() for h in hl]
+            hl_pages = len(highlights) if highlights else 0
+            hl_words = sum(len(h.split()) for h in flat_hl)
+
             obsidian.create_paper_note(
                 title=title,
                 authors=doc["authors"],
@@ -141,6 +175,10 @@ def _reprocess(args: list[str]) -> None:
                 citation_count=meta.get("citation_count", 0),
                 key_learnings=learnings,
                 date_read=read_date,
+                engagement=engagement,
+                highlighted_pages=hl_pages,
+                highlight_word_count=hl_words,
+                page_count=page_count,
             )
 
             # Add Obsidian deep link in Zotero
@@ -158,9 +196,12 @@ def _reprocess(args: list[str]) -> None:
             obsidian.append_to_reading_log(title, one_liner, date_read=read_date)
 
             # Save summary and highlight count to state
-            doc["highlight_count"] = sum(
-                len(v) for v in (highlights or {}).values()
+            doc["highlight_count"] = len(flat_hl)
+            doc["highlighted_pages"] = len(highlights) if highlights else 0
+            doc["highlight_word_count"] = sum(
+                len(h.split()) for h in flat_hl
             )
+            doc["page_count"] = page_count
             state.mark_processed(item_key, summary=one_liner)
             state.save()
 
@@ -474,6 +515,7 @@ def _promote() -> None:
                     "title": doc["title"],
                     "tags": meta.get("tags", []),
                     "summary": doc.get("summary", ""),
+                    "engagement": doc.get("engagement", 0),
                 })
 
             result = summarizer.suggest_papers(unread_enriched, recent_enriched)
@@ -481,15 +523,17 @@ def _promote() -> None:
                 log.warning("Could not generate suggestions")
                 return
 
-            # Parse picks from Claude's response
+            # Parse picks from Claude's response (bidirectional title matching)
             title_to_key = {doc["title"].lower(): doc["zotero_item_key"] for doc in unread}
             pick_keys = []
             for line in result.strip().split("\n"):
                 clean = line.strip().replace("**", "")
                 if not clean:
                     continue
+                clean_lower = clean.lower()
+                suggestion_title = re.sub(r"^\d+\.\s*", "", clean_lower).rstrip(" —-").split(" — ")[0].strip()
                 for title_lower, key in title_to_key.items():
-                    if title_lower in clean.lower() and key not in pick_keys:
+                    if (title_lower in clean_lower or suggestion_title in title_lower) and key not in pick_keys:
                         pick_keys.append(key)
                         break
 
@@ -889,10 +933,19 @@ def main():
                         if not highlights:
                             log.info("No text highlights found for '%s'", rm_name)
 
+                        # Get page count for engagement score
+                        stat = remarkable_client.stat_document(
+                            config.RM_FOLDER_READ, rm_name,
+                        )
+                        page_count = (stat or {}).get("page_count", 0)
+                        if not page_count:
+                            page_count = renderer.get_page_count(zip_path)
+
                         # Render annotated PDF
                         render_ok = renderer.render_annotated_pdf(zip_path, pdf_path)
                     else:
                         render_ok = False
+                        page_count = 0
 
                     # Fall back to geta if render failed
                     if not render_ok:
@@ -952,6 +1005,15 @@ def main():
                     key_learnings=learnings,
                 )
 
+                # Compute engagement score and highlight stats
+                engagement = _compute_engagement(highlights, page_count)
+                doc["engagement"] = engagement
+                hl_pages = len(highlights) if highlights else 0
+                hl_words = sum(
+                    len(h.split())
+                    for hl in (highlights or {}).values() for h in hl
+                )
+
                 # Create Obsidian note with page-grouped highlights
                 obsidian.ensure_dataview_note()
                 obsidian.ensure_stats_note()
@@ -972,6 +1034,10 @@ def main():
                     topic_tags=meta.get("tags"),
                     citation_count=meta.get("citation_count", 0),
                     key_learnings=learnings,
+                    engagement=engagement,
+                    highlighted_pages=hl_pages,
+                    highlight_word_count=hl_words,
+                    page_count=page_count,
                 )
 
                 # Add Obsidian deep link in Zotero
@@ -988,15 +1054,19 @@ def main():
                 # Append to reading log
                 obsidian.append_to_reading_log(doc["title"], one_liner)
 
-                # Move to Vault on reMarkable
+                # Move to Saved on reMarkable
                 remarkable_client.move_document(
-                    rm_name, config.RM_FOLDER_READ, config.RM_FOLDER_VAULT,
+                    rm_name, config.RM_FOLDER_READ, config.RM_FOLDER_SAVED,
                 )
 
                 # Update state
-                doc["highlight_count"] = sum(
-                    len(v) for v in (highlights or {}).values()
+                flat_hl = [h for hl in (highlights or {}).values() for h in hl]
+                doc["highlight_count"] = len(flat_hl)
+                doc["highlighted_pages"] = len(highlights) if highlights else 0
+                doc["highlight_word_count"] = sum(
+                    len(h.split()) for h in flat_hl
                 )
+                doc["page_count"] = page_count
                 state.mark_processed(item_key, summary=one_liner)
                 state.save()
                 synced_count += 1

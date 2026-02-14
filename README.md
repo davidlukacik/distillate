@@ -263,7 +263,7 @@ All settings are in `.env`. See [.env.example](.env.example) for the full list.
 | `RM_FOLDER_PAPERS` | `Papers` | Parent folder on reMarkable |
 | `RM_FOLDER_INBOX` | `Papers/Inbox` | reMarkable folder for unread papers |
 | `RM_FOLDER_READ` | `Papers/Read` | reMarkable folder — move papers here when done reading |
-| `RM_FOLDER_VAULT` | `Papers/Vault` | reMarkable folder for processed papers |
+| `RM_FOLDER_SAVED` | `Papers/Saved` | reMarkable folder for processed papers |
 | `ZOTERO_TAG_INBOX` | `inbox` | Zotero tag for papers sent to reMarkable |
 | `ZOTERO_TAG_READ` | `read` | Zotero tag for fully read papers |
 | `OBSIDIAN_VAULT_PATH` | *(empty)* | Path to Obsidian vault (disables Obsidian if unset) |
