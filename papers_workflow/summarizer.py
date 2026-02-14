@@ -62,17 +62,17 @@ def summarize_read_paper(
     return _fallback_read(title, abstract, highlights)
 
 
-def extract_questions(
+def extract_insights(
     title: str,
     highlights: Optional[List[str]] = None,
     abstract: str = "",
-) -> List[str]:
-    """Extract 2-3 open research questions from a paper's highlights.
+) -> Tuple[List[str], List[str]]:
+    """Extract key learnings and open questions from a paper's highlights.
 
-    Returns a list of question strings, or empty list on failure.
+    Returns (learnings, questions) — each a list of short bullet-point strings.
     """
     if not config.ANTHROPIC_API_KEY:
-        return []
+        return [], []
 
     context_parts = []
     if highlights:
@@ -81,36 +81,48 @@ def extract_questions(
         context_parts.append(f"Abstract: {abstract}")
 
     if not context_parts:
-        return []
+        return [], []
 
     context = "\n\n".join(context_parts)
 
     prompt = (
-        f"Based on these highlights from the paper \"{title}\", identify 2-3 "
-        f"open research questions, gaps, or directions for future work that "
-        f"emerge from the reading.\n\n"
+        f"From these highlights of \"{title}\":\n\n"
         f"{context}\n\n"
-        f"Be specific and actionable — each question should point toward a "
-        f"concrete investigation, not a vague area. Return a numbered list.\n"
-        f"If no clear questions emerge, return exactly: none"
+        f"Return two sections separated by '---':\n"
+        f"LEARNINGS: 3-5 key facts or insights. Each must be one short sentence "
+        f"(max 15 words). State facts directly, no filler.\n"
+        f"QUESTIONS: 2-3 open questions or gaps. Each must be one short sentence "
+        f"(max 15 words). Be specific.\n\n"
+        f"Format:\n"
+        f"- learning one\n"
+        f"- learning two\n"
+        f"---\n"
+        f"- question one\n"
+        f"- question two"
     )
 
-    result = _call_claude(prompt, max_tokens=200)
-    if not result or result.strip().lower() == "none":
-        return []
+    result = _call_claude(prompt, max_tokens=300)
+    if not result:
+        return [], []
 
+    learnings = []
     questions = []
+    target = learnings
     for line in result.strip().split("\n"):
         line = line.strip()
+        if line == "---":
+            target = questions
+            continue
         if not line:
             continue
-        # Strip leading number + punctuation (e.g. "1. ", "1) ", "- ")
         cleaned = re.sub(r"^\d+[.)]\s*", "", line)
         cleaned = re.sub(r"^[-*]\s*", "", cleaned)
+        cleaned = re.sub(r"^\*\*.*?\*\*\s*", "", cleaned)  # strip bold labels
+        cleaned = re.sub(r"^(LEARNINGS|QUESTIONS):?\s*", "", cleaned, flags=re.IGNORECASE)
         if cleaned:
-            questions.append(cleaned)
+            target.append(cleaned)
 
-    return questions[:3]
+    return learnings[:5], questions[:3]
 
 
 def extract_tags(title: str, abstract: str = "") -> Tuple[List[str], str]:

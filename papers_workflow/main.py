@@ -109,8 +109,8 @@ def _reprocess(args: list[str]) -> None:
                     highlights=flat_highlights,
                 )
 
-            # Extract open research questions
-            questions = summarizer.extract_questions(
+            # Extract key learnings and open questions
+            learnings, questions = summarizer.extract_insights(
                 title,
                 highlights=flat_highlights,
                 abstract=meta.get("abstract", ""),
@@ -136,6 +136,7 @@ def _reprocess(args: list[str]) -> None:
                 takeaway=log_sentence,
                 topic_tags=meta.get("tags"),
                 citation_count=meta.get("citation_count", 0),
+                key_learnings=learnings,
                 open_questions=questions,
             )
 
@@ -871,8 +872,8 @@ def main():
                     highlights=flat_highlights,
                 )
 
-                # Extract open research questions
-                questions = summarizer.extract_questions(
+                # Extract key learnings and open questions
+                learnings, questions = summarizer.extract_insights(
                     doc["title"],
                     highlights=flat_highlights,
                     abstract=meta.get("abstract", ""),
@@ -897,6 +898,7 @@ def main():
                     takeaway=log_sentence,
                     topic_tags=meta.get("tags"),
                     citation_count=meta.get("citation_count", 0),
+                    key_learnings=learnings,
                     open_questions=questions,
                 )
 
