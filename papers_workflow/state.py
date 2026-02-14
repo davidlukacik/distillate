@@ -158,6 +158,15 @@ class State:
     def promoted_papers(self, keys: List[str]) -> None:
         self._data["promoted_papers"] = keys
 
+    @property
+    def pending_promotions(self) -> List[str]:
+        """Return Zotero item keys picked by --suggest, awaiting --promote."""
+        return self._data.get("pending_promotions", [])
+
+    @pending_promotions.setter
+    def pending_promotions(self, keys: List[str]) -> None:
+        self._data["pending_promotions"] = keys
+
     def documents_processed_since(self, since_iso: str) -> List[Dict[str, Any]]:
         """Return documents processed on or after the given ISO timestamp."""
         return sorted(

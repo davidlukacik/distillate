@@ -1,6 +1,7 @@
 """Weekly email digest and daily paper suggestions."""
 
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
 import resend
@@ -10,6 +11,60 @@ from papers_workflow import summarizer
 from papers_workflow.state import State
 
 log = logging.getLogger(__name__)
+
+
+def _sync_tags(state: State) -> None:
+    """Refresh tags and URLs from Zotero for all tracked papers.
+
+    Lightweight sync: only fetches items whose Zotero version changed,
+    updates tags/URL/DOI in state metadata.
+    """
+    from papers_workflow import zotero_client
+
+    try:
+        current_version = zotero_client.get_library_version()
+        stored_version = state.zotero_library_version
+        if current_version == stored_version:
+            return
+
+        changed_keys, _ = zotero_client.get_changed_item_keys(stored_version)
+        tracked_changed = [k for k in changed_keys if state.has_document(k)]
+        if not tracked_changed:
+            state.zotero_library_version = current_version
+            state.save()
+            return
+
+        items = zotero_client.get_items_by_keys(tracked_changed)
+        items_by_key = {item["key"]: item for item in items}
+        updated = 0
+
+        for key in tracked_changed:
+            item = items_by_key.get(key)
+            if not item:
+                continue
+            doc = state.get_document(key)
+            if not doc:
+                continue
+
+            new_meta = zotero_client.extract_metadata(item)
+            old_meta = doc.get("metadata", {})
+
+            # Preserve S2 enrichment
+            for field in ("citation_count", "influential_citation_count",
+                          "s2_url", "paper_type"):
+                if field in old_meta:
+                    new_meta[field] = old_meta[field]
+
+            doc["metadata"] = new_meta
+            doc["authors"] = new_meta.get("authors", doc["authors"])
+            updated += 1
+
+        state.zotero_library_version = current_version
+        state.save()
+        if updated:
+            log.info("Synced metadata for %d paper(s) from Zotero", updated)
+    except Exception:
+        log.debug("Tag sync failed, continuing with cached data", exc_info=True)
 
 # Pastel palette for tag pills (deterministic by tag name hash)
 _PILL_COLORS = [
@@ -103,7 +158,7 @@ def _queue_health_html(state: State) -> str:
 
     return (
         f'<hr style="border:none;border-top:1px solid #eee;margin:20px 0;">'
-        f'<p style="color:#999;font-size:12px;">'
+        f'<p style="color:#999;font-size:11px;">'
         f'Queue: {total} papers waiting'
         f' &middot; oldest: {oldest_days} days'
         f' &middot; this week: +{added_this_week} added, '
@@ -122,8 +177,11 @@ def send_weekly_digest(days: int = 7) -> None:
         log.error("DIGEST_TO not set, cannot send digest")
         return
 
-    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     state = State()
+    _sync_tags(state)
+
+    now = datetime.now(timezone.utc)
+    since = (now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days)).isoformat()
     papers = state.documents_processed_since(since)
 
     if not papers:
@@ -148,14 +206,23 @@ def _build_subject():
 
 
 def _paper_url(p):
-    """Return a URL to the paper, preferring direct URL over DOI."""
+    """Return a URL to the paper. Fallback chain: URL > DOI > S2 > Google Scholar."""
+    from urllib.parse import quote_plus
+
     meta = p.get("metadata", {})
     url = meta.get("url", "")
     doi = meta.get("doi", "")
+    s2_url = meta.get("s2_url", "")
+    title = p.get("title", "")
+
     if url:
         return url
     if doi:
         return f"https://doi.org/{doi}"
+    if s2_url:
+        return s2_url
+    if title:
+        return f"https://scholar.google.com/scholar?q={quote_plus(title)}"
     return ""
 
 
@@ -220,7 +287,7 @@ def _build_body(papers, state: State):
 
 
 def send_suggestion() -> None:
-    """Send a daily email suggesting 3 papers to read next."""
+    """Send a daily email suggesting 3 papers and store picks for promotion."""
     config.setup_logging()
 
     if not config.RESEND_API_KEY:
@@ -231,6 +298,7 @@ def send_suggestion() -> None:
         return
 
     state = State()
+    _sync_tags(state)
 
     # Gather unread papers (on_remarkable)
     unread = state.documents_with_status("on_remarkable")
@@ -266,6 +334,22 @@ def send_suggestion() -> None:
     if not result:
         log.warning("Could not generate suggestions")
         return
+
+    # Store picks for --promote to execute later (works from GH Actions)
+    title_to_key = {doc["title"].lower(): doc["zotero_item_key"] for doc in unread}
+    pending = []
+    for line in result.strip().split("\n"):
+        clean = line.strip().replace("**", "")
+        if not clean:
+            continue
+        for title_lower, key in title_to_key.items():
+            if title_lower in clean.lower() and key not in pending:
+                pending.append(key)
+                break
+    if pending:
+        state.pending_promotions = pending
+        state.save()
+        log.info("Stored %d pending promotion(s) for next --promote run", len(pending))
 
     subject = datetime.now().strftime("What to read next \u2013 %b %-d, %Y")
     body = _build_suggestion_body(result, unread, state)
@@ -315,21 +399,12 @@ def send_themes_email(month: str, themes_text: str) -> None:
 
 def _build_suggestion_body(suggestion_text, unread, state: State):
     """Build HTML body from Claude's suggestion text."""
-    import re
-
     # Build title -> doc lookup from full unread list
     url_lookup = {}
     tags_lookup = {}
     for doc in unread:
-        meta = doc.get("metadata", {})
-        url = meta.get("url", "")
-        doi = meta.get("doi", "")
-        title_lower = doc["title"].lower()
-        if url:
-            url_lookup[title_lower] = url
-        elif doi:
-            url_lookup[title_lower] = f"https://doi.org/{doi}"
-        tags_lookup[title_lower] = meta.get("tags", [])
+        url_lookup[doc["title"].lower()] = _paper_url(doc)
+        tags_lookup[doc["title"].lower()] = doc.get("metadata", {}).get("tags", [])
 
     intro = (
         f"<p>You have {len(unread)} papers in your queue, "

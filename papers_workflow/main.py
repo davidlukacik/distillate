@@ -390,7 +390,11 @@ def _sync_state() -> None:
 
 
 def _promote() -> None:
-    """Pick 3 papers to read next and move them to the Papers root on reMarkable."""
+    """Promote papers to the Papers root on reMarkable.
+
+    Uses pending picks from --suggest if available, otherwise asks Claude directly.
+    Demotes old promoted papers (unless user started reading them).
+    """
     from datetime import datetime, timedelta, timezone
 
     from papers_workflow import config
@@ -418,11 +422,9 @@ def _promote() -> None:
                     continue
                 rm_name = doc["remarkable_doc_name"]
                 if rm_name not in papers_root_docs:
-                    # Paper was manually moved — skip demotion for safety
                     log.info("Skipping demotion (not at Papers root): %s", doc["title"])
                     continue
 
-                # Check if user started reading
                 stat = remarkable_client.stat_document(config.RM_FOLDER_PAPERS, rm_name)
                 if stat and stat.get("current_page", 0) > 0:
                     log.info("User started reading, not demoting: %s", doc["title"])
@@ -430,7 +432,6 @@ def _promote() -> None:
                     continue
 
                 if stat is None:
-                    # stat failed — don't demote for safety
                     log.info("Could not stat document, skipping demotion: %s", doc["title"])
                     remaining_promoted.append(key)
                     continue
@@ -442,67 +443,77 @@ def _promote() -> None:
             state.promoted_papers = remaining_promoted
             state.save()
 
-        # Gather unread papers for suggestion
+        # Use pending picks from --suggest, or generate new ones
+        pending = state.pending_promotions
         unread = state.documents_with_status("on_remarkable")
         if not unread:
             log.info("No papers in reading queue, nothing to promote")
             return
 
-        # Build enriched lists for suggestion engine
-        unread_enriched = []
-        for doc in unread:
-            meta = doc.get("metadata", {})
-            unread_enriched.append({
-                "title": doc["title"],
-                "tags": meta.get("tags", []),
-                "paper_type": meta.get("paper_type", ""),
-                "uploaded_at": doc.get("uploaded_at", ""),
-            })
+        if pending:
+            pick_keys = pending
+            log.info("Using %d pending pick(s) from --suggest", len(pick_keys))
+        else:
+            # No pending picks — ask Claude directly
+            unread_enriched = []
+            for doc in unread:
+                meta = doc.get("metadata", {})
+                unread_enriched.append({
+                    "title": doc["title"],
+                    "tags": meta.get("tags", []),
+                    "paper_type": meta.get("paper_type", ""),
+                    "uploaded_at": doc.get("uploaded_at", ""),
+                })
 
-        since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-        recent = state.documents_processed_since(since)
-        recent_enriched = []
-        for doc in recent:
-            meta = doc.get("metadata", {})
-            recent_enriched.append({
-                "title": doc["title"],
-                "tags": meta.get("tags", []),
-                "summary": doc.get("summary", ""),
-            })
+            since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+            recent = state.documents_processed_since(since)
+            recent_enriched = []
+            for doc in recent:
+                meta = doc.get("metadata", {})
+                recent_enriched.append({
+                    "title": doc["title"],
+                    "tags": meta.get("tags", []),
+                    "summary": doc.get("summary", ""),
+                })
 
-        # Ask Claude to pick 3
-        result = summarizer.suggest_papers(unread_enriched, recent_enriched)
-        if not result:
-            log.warning("Could not generate suggestions")
-            return
+            result = summarizer.suggest_papers(unread_enriched, recent_enriched)
+            if not result:
+                log.warning("Could not generate suggestions")
+                return
 
-        # Match suggested titles back to documents
+            # Parse picks from Claude's response
+            title_to_key = {doc["title"].lower(): doc["zotero_item_key"] for doc in unread}
+            pick_keys = []
+            for line in result.strip().split("\n"):
+                clean = line.strip().replace("**", "")
+                if not clean:
+                    continue
+                for title_lower, key in title_to_key.items():
+                    if title_lower in clean.lower() and key not in pick_keys:
+                        pick_keys.append(key)
+                        break
+
+        # Move picked papers from Inbox to Papers root
         inbox_docs = remarkable_client.list_folder(config.RM_FOLDER_INBOX)
-        title_to_key = {doc["title"].lower(): doc["zotero_item_key"] for doc in unread}
-        title_to_rm = {doc["title"].lower(): doc["remarkable_doc_name"] for doc in unread}
-
         promoted_keys = list(remaining_promoted)
-        for line in result.strip().split("\n"):
-            line = line.strip()
-            if not line:
+
+        for key in pick_keys:
+            if key in promoted_keys:
                 continue
-            for title_lower, key in title_to_key.items():
-                if title_lower in line.lower() and key not in promoted_keys:
-                    rm_name = title_to_rm[title_lower]
-                    if rm_name in inbox_docs:
-                        remarkable_client.move_document(
-                            rm_name, config.RM_FOLDER_INBOX, config.RM_FOLDER_PAPERS,
-                        )
-                        doc = state.get_document(key)
-                        if doc:
-                            doc["promoted_at"] = datetime.now(timezone.utc).isoformat()
-                        promoted_keys.append(key)
-                        log.info("Promoted: %s", rm_name)
-                    break
-            if len(promoted_keys) >= 3 + len(remaining_promoted):
-                break
+            doc = state.get_document(key)
+            if not doc or doc["status"] != "on_remarkable":
+                continue
+            rm_name = doc["remarkable_doc_name"]
+            if rm_name in inbox_docs:
+                remarkable_client.move_document(
+                    rm_name, config.RM_FOLDER_INBOX, config.RM_FOLDER_PAPERS,
+                )
+                doc["promoted_at"] = datetime.now(timezone.utc).isoformat()
+                promoted_keys.append(key)
+                log.info("Promoted: %s", doc["title"])
 
         state.promoted_papers = promoted_keys
+        state.pending_promotions = []  # Clear pending after execution
         state.save()
         log.info("Promoted %d paper(s) to Papers root", len(promoted_keys))
 

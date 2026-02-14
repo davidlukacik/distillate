@@ -95,10 +95,11 @@ class TestStatDocument:
 # ---------------------------------------------------------------------------
 
 
-def _make_state(documents: dict, promoted: list):
+def _make_state(documents: dict, promoted: list, pending: list = None):
     """Create a mock State with the given documents and promoted list."""
     state = MagicMock()
     state.promoted_papers = list(promoted)
+    state.pending_promotions = list(pending or [])
     state.get_document = lambda key: documents.get(key)
     state.documents_with_status = lambda status: [
         d for d in documents.values() if d["status"] == status
