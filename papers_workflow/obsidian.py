@@ -366,7 +366,7 @@ def append_to_reading_log(
     header_end = existing.index("\n\n") + 2 if "\n\n" in existing else len(existing)
     updated = existing[:header_end] + bullet + "\n" + existing[header_end:]
     log_path.write_text(updated)
-    log.info("Updated Reading Log: %s (%s)", title, status)
+    log.info("Updated Reading Log: %s", title)
 
 
 def get_obsidian_uri(title: str, subfolder: str = "Read") -> Optional[str]:
