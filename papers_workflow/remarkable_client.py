@@ -44,7 +44,6 @@ def ensure_folders() -> None:
     for folder in (
         config.RM_FOLDER_INBOX,
         config.RM_FOLDER_READ,
-        config.RM_FOLDER_LEAFED,
         config.RM_FOLDER_VAULT,
     ):
         _ensure_folder(folder)
