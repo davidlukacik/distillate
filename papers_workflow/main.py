@@ -87,13 +87,13 @@ def _reprocess(args: list[str]) -> None:
             elif linked:
                 zotero_client.delete_attachment(linked["key"])
 
-            # Fetch fresh metadata from Zotero
-            meta = doc.get("metadata", {})
-            if not meta:
-                items = zotero_client.get_items_by_keys([item_key])
-                if items:
-                    meta = zotero_client.extract_metadata(items[0])
-                    doc["metadata"] = meta
+            # Fetch fresh metadata from Zotero (includes tags)
+            items = zotero_client.get_items_by_keys([item_key])
+            if items:
+                meta = zotero_client.extract_metadata(items[0])
+                doc["metadata"] = meta
+            else:
+                meta = doc.get("metadata", {})
 
             # Flatten highlights for summarizer (needs raw text, not pages)
             flat_highlights = [
@@ -112,6 +112,9 @@ def _reprocess(args: list[str]) -> None:
                 highlights=flat_highlights,
                 abstract=meta.get("abstract", ""),
             )
+
+            # Use original processing date, not today
+            read_date = doc.get("processed_at", "")
 
             # Recreate Obsidian note (delete existing first)
             obsidian.ensure_dataview_note()
@@ -134,6 +137,7 @@ def _reprocess(args: list[str]) -> None:
                 citation_count=meta.get("citation_count", 0),
                 key_learnings=learnings,
                 open_questions=questions,
+                date_read=read_date,
             )
 
             # Add Obsidian deep link in Zotero
@@ -148,7 +152,7 @@ def _reprocess(args: list[str]) -> None:
             zotero_client.set_note(item_key, zotero_note_html)
 
             # Update reading log
-            obsidian.append_to_reading_log(title, "Read", summary)
+            obsidian.append_to_reading_log(title, "Read", summary, date_read=read_date)
 
             # Save summary to state
             state.mark_processed(item_key, summary=summary)
@@ -224,48 +228,6 @@ def _dry_run() -> None:
 
     log.info("=== DRY RUN complete ===")
 
-
-def _backfill_tags() -> None:
-    """Backfill topic tags for papers that don't have them yet."""
-    from papers_workflow import config
-    from papers_workflow import summarizer
-    from papers_workflow import zotero_client
-    from papers_workflow.state import State
-
-    config.setup_logging()
-
-    state = State()
-    count = 0
-
-    for key, doc in state.documents.items():
-        meta = doc.get("metadata", {})
-        if meta.get("tags"):
-            continue
-
-        # Fetch metadata from Zotero if missing
-        if not meta.get("abstract"):
-            items = zotero_client.get_items_by_keys([key])
-            if items:
-                meta = zotero_client.extract_metadata(items[0])
-                doc["metadata"] = meta
-
-        abstract = meta.get("abstract", "")
-        if not abstract:
-            log.info("No abstract for '%s', skipping tags", doc["title"])
-            continue
-
-        tags, paper_type = summarizer.extract_tags(doc["title"], abstract)
-        if tags:
-            meta["tags"] = tags
-            log.info("Tagged '%s': %s", doc["title"], ", ".join(tags))
-        if paper_type:
-            meta["paper_type"] = paper_type
-
-        doc["metadata"] = meta
-        state.save()
-        count += 1
-
-    log.info("Backfilled tags for %d paper(s)", count)
 
 
 def _backfill_s2() -> None:
@@ -530,11 +492,7 @@ def main():
         _dry_run()
         return
 
-    if "--backfill-tags" in sys.argv:
-        _backfill_tags()
-        return
-
-    if "--backfill-s2" in sys.argv:
+if "--backfill-s2" in sys.argv:
         _backfill_s2()
         return
 
@@ -724,15 +682,6 @@ def main():
                                         log.warning("Could not create linked attachment for '%s', keeping imported PDF", title)
                                 else:
                                     zotero_client.delete_attachment(att_key)
-
-                            # Extract topic tags
-                            tags, paper_type = summarizer.extract_tags(
-                                title, meta.get("abstract", ""),
-                            )
-                            if tags:
-                                meta["tags"] = tags
-                            if paper_type:
-                                meta["paper_type"] = paper_type
 
                             # Semantic Scholar enrichment
                             try:

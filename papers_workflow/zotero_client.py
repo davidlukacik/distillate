@@ -376,6 +376,12 @@ def extract_metadata(item: Dict[str, Any]) -> Dict[str, Any]:
             c.get("lastName") or c.get("name", "Unknown")
             for c in creators
         ]
+    # Extract Zotero tags, excluding workflow tags
+    workflow_tags = {config.ZOTERO_TAG_INBOX, config.ZOTERO_TAG_READ}
+    tags = [
+        t["tag"] for t in data.get("tags", [])
+        if t["tag"] not in workflow_tags
+    ]
     return {
         "title": title,
         "authors": authors,
@@ -389,4 +395,5 @@ def extract_metadata(item: Dict[str, Any]) -> Dict[str, Any]:
             or data.get("bookTitle")
             or ""
         ),
+        "tags": tags,
     }

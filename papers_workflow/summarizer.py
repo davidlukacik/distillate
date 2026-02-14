@@ -114,42 +114,6 @@ def extract_insights(
     return learnings[:5], questions[:3]
 
 
-def extract_tags(title: str, abstract: str = "") -> Tuple[List[str], str]:
-    """Extract topic tags and paper type from a paper's abstract.
-
-    Returns (tags, paper_type):
-      - tags: 3-5 lowercase kebab-case topic tags
-      - paper_type: one of empirical, methods, review, opinion, theoretical
-    """
-    if not config.ANTHROPIC_API_KEY or not abstract:
-        return [], ""
-
-    prompt = (
-        f"Analyze this research paper and return:\n"
-        f"1. 3-5 topic tags (lowercase, kebab-case like 'bayesian-inference' or "
-        f"'protein-engineering'). Cover the research area, methodology, and "
-        f"application domain.\n"
-        f"2. Paper type: one of empirical, methods, review, opinion, theoretical.\n\n"
-        f"Paper: {title}\nAbstract: {abstract}\n\n"
-        f"Format (exactly):\ntags: tag1, tag2, tag3\ntype: paper_type"
-    )
-
-    result = _call_claude(prompt, max_tokens=100)
-    if not result:
-        return [], ""
-
-    tags = []
-    paper_type = ""
-    for line in result.strip().split("\n"):
-        line = line.strip().lower()
-        if line.startswith("tags:"):
-            raw = line[5:].strip()
-            tags = [t.strip() for t in raw.split(",") if t.strip()]
-        elif line.startswith("type:"):
-            paper_type = line[5:].strip()
-
-    return tags, paper_type
-
 
 def suggest_papers(
     unread: List[dict],

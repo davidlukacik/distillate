@@ -234,6 +234,7 @@ def create_paper_note(
     citation_count: int = 0,
     key_learnings: Optional[List[str]] = None,
     open_questions: Optional[List[str]] = None,
+    date_read: str = "",
 ) -> Optional[Path]:
     """Create an Obsidian note for a read paper in the Read subfolder.
 
@@ -251,7 +252,7 @@ def create_paper_note(
         log.warning("Note already exists, skipping: %s", note_path)
         return None
 
-    today = date.today().isoformat()
+    today = date_read[:10] if date_read else date.today().isoformat()
 
     # Build YAML frontmatter
     authors_yaml = "\n".join(f"  - {a}" for a in authors) if authors else "  - Unknown"
@@ -326,17 +327,19 @@ def append_to_reading_log(
     title: str,
     status: str,
     summary: str,
+    date_read: str = "",
 ) -> None:
     """Append a paper entry to the Reading Log note.
 
     Flat bullet list, newest first. Creates the note if needed.
+    Removes ALL existing entries for the same paper to prevent duplicates.
     """
     d = _papers_dir()
     if d is None:
         return
 
     log_path = d / "Reading Log.md"
-    today = date.today().isoformat()
+    entry_date = date_read[:10] if date_read else date.today().isoformat()
 
     if not log_path.exists():
         log_path.write_text("# Reading Log\n\n")
@@ -344,27 +347,23 @@ def append_to_reading_log(
 
     existing = log_path.read_text()
     sanitized = _sanitize_note_name(title)
-    bullet = f"- {today} — **{status}**: [[{sanitized}|{title}]] — {summary}"
+    bullet = f"- {entry_date} — **{status}**: [[{sanitized}|{title}]] — {summary}"
 
-    # Check for existing entry and replace it (prevents duplicates on reprocess)
+    # Remove ALL existing entries for this paper
     link_marker = f"[[{sanitized}|"
     lines = existing.split("\n")
-    replaced = False
-    for i, line in enumerate(lines):
-        if link_marker in line:
-            lines[i] = bullet
-            replaced = True
-            break
+    cleaned = [line for line in lines if link_marker not in line]
 
-    if replaced:
-        log_path.write_text("\n".join(lines))
-        log.info("Updated Reading Log entry: %s (%s)", title, status)
-    else:
-        # Insert right after the "# Reading Log" header
-        header_end = existing.index("\n\n") + 2 if "\n\n" in existing else len(existing)
-        updated = existing[:header_end] + bullet + "\n" + existing[header_end:]
-        log_path.write_text(updated)
-        log.info("Appended to Reading Log: %s (%s)", title, status)
+    if len(cleaned) < len(lines):
+        # Had existing entries — insert updated one after header
+        existing = "\n".join(cleaned)
+        log.info("Removed %d old Reading Log entries for: %s", len(lines) - len(cleaned), title)
+
+    # Insert right after the "# Reading Log" header
+    header_end = existing.index("\n\n") + 2 if "\n\n" in existing else len(existing)
+    updated = existing[:header_end] + bullet + "\n" + existing[header_end:]
+    log_path.write_text(updated)
+    log.info("Updated Reading Log: %s (%s)", title, status)
 
 
 def get_obsidian_uri(title: str, subfolder: str = "Read") -> Optional[str]:
