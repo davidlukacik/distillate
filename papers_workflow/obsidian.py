@@ -234,7 +234,6 @@ def create_paper_note(
     topic_tags: Optional[List[str]] = None,
     citation_count: int = 0,
     key_learnings: Optional[List[str]] = None,
-    open_questions: Optional[List[str]] = None,
     date_read: str = "",
 ) -> Optional[Path]:
     """Create an Obsidian note for a read paper in the Read subfolder.
@@ -292,12 +291,6 @@ def create_paper_note(
     else:
         learnings_md = ""
 
-    # Optional open questions section
-    if open_questions:
-        questions_md = "## Open Questions\n\n" + "\n".join(f"- {q}" for q in open_questions) + "\n\n"
-    else:
-        questions_md = ""
-
     # Optional abstract section
     if abstract:
         abstract_md = f"## Abstract\n\n> {abstract}\n\n"
@@ -318,7 +311,7 @@ tags:
 
 # {title}
 
-{oneliner_md}{summary_md}{learnings_md}{questions_md}{pdf_embed}{abstract_md}## Highlights
+{oneliner_md}{summary_md}{learnings_md}{pdf_embed}{abstract_md}## Highlights
 
 {highlights_md}
 """
@@ -329,7 +322,6 @@ tags:
 
 def append_to_reading_log(
     title: str,
-    status: str,
     summary: str,
     date_read: str = "",
 ) -> None:
@@ -337,13 +329,13 @@ def append_to_reading_log(
 
     Flat bullet list, newest first. Creates the note if needed.
     Removes ALL existing entries for the same paper to prevent duplicates.
+    On reprocess, preserves the original entry date.
     """
     d = _papers_dir()
     if d is None:
         return
 
     log_path = d / "Reading Log.md"
-    entry_date = date_read[:10] if date_read else date.today().isoformat()
 
     if not log_path.exists():
         log_path.write_text("# Reading Log\n\n")
@@ -351,17 +343,24 @@ def append_to_reading_log(
 
     existing = log_path.read_text()
     sanitized = _sanitize_note_name(title)
-    bullet = f"- {entry_date} — **{status}**: [[{sanitized}|{title}]] — {summary}"
 
-    # Remove ALL existing entries for this paper
+    # Find existing entries and preserve the oldest date
     link_marker = f"[[{sanitized}|"
     lines = existing.split("\n")
+    existing_date = ""
+    for line in lines:
+        if link_marker in line and line.startswith("- "):
+            existing_date = line[2:12]  # extract YYYY-MM-DD after "- "
+            break
+
+    entry_date = existing_date or (date_read[:10] if date_read else date.today().isoformat())
+    bullet = f"- {entry_date} — [[{sanitized}|{title}]] — {summary}"
+
+    # Remove ALL existing entries for this paper
     cleaned = [line for line in lines if link_marker not in line]
 
     if len(cleaned) < len(lines):
-        # Had existing entries — insert updated one after header
         existing = "\n".join(cleaned)
-        log.info("Removed %d old Reading Log entries for: %s", len(lines) - len(cleaned), title)
 
     # Insert right after the "# Reading Log" header
     header_end = existing.index("\n\n") + 2 if "\n\n" in existing else len(existing)

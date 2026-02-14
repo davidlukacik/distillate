@@ -106,8 +106,8 @@ def _reprocess(args: list[str]) -> None:
                 highlights=flat_highlights,
             )
 
-            # Extract key learnings and open questions
-            learnings, questions = summarizer.extract_insights(
+            # Extract key learnings
+            learnings = summarizer.extract_insights(
                 title,
                 highlights=flat_highlights,
                 abstract=meta.get("abstract", ""),
@@ -137,7 +137,6 @@ def _reprocess(args: list[str]) -> None:
                 topic_tags=meta.get("tags"),
                 citation_count=meta.get("citation_count", 0),
                 key_learnings=learnings,
-                open_questions=questions,
                 date_read=read_date,
             )
 
@@ -152,8 +151,8 @@ def _reprocess(args: list[str]) -> None:
             )
             zotero_client.set_note(item_key, zotero_note_html)
 
-            # Update reading log (one_liner only)
-            obsidian.append_to_reading_log(title, "Read", one_liner, date_read=read_date)
+            # Update reading log
+            obsidian.append_to_reading_log(title, one_liner, date_read=read_date)
 
             # Save summary to state
             state.mark_processed(item_key, summary=one_liner)
@@ -815,8 +814,8 @@ def main():
                     highlights=flat_highlights,
                 )
 
-                # Extract key learnings and open questions
-                learnings, questions = summarizer.extract_insights(
+                # Extract key learnings
+                learnings = summarizer.extract_insights(
                     doc["title"],
                     highlights=flat_highlights,
                     abstract=meta.get("abstract", ""),
@@ -842,7 +841,6 @@ def main():
                     topic_tags=meta.get("tags"),
                     citation_count=meta.get("citation_count", 0),
                     key_learnings=learnings,
-                    open_questions=questions,
                 )
 
                 # Add Obsidian deep link in Zotero
@@ -856,8 +854,8 @@ def main():
                 )
                 zotero_client.set_note(item_key, zotero_note_html)
 
-                # Append to reading log (one_liner only)
-                obsidian.append_to_reading_log(doc["title"], "Read", one_liner)
+                # Append to reading log
+                obsidian.append_to_reading_log(doc["title"], one_liner)
 
                 # Move to Vault on reMarkable
                 remarkable_client.move_document(

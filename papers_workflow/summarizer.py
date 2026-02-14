@@ -68,13 +68,14 @@ def extract_insights(
     title: str,
     highlights: Optional[List[str]] = None,
     abstract: str = "",
-) -> Tuple[List[str], List[str]]:
-    """Extract key learnings and open questions from a paper's highlights.
+) -> List[str]:
+    """Extract key learnings from a paper's highlights.
 
-    Returns (learnings, questions) — each a list of short bullet-point strings.
+    Returns a list of short bullet-point strings, ending with a
+    'so what' bullet explaining why this work matters.
     """
     if not config.ANTHROPIC_API_KEY:
-        return [], []
+        return []
 
     context_parts = []
     if highlights:
@@ -83,48 +84,42 @@ def extract_insights(
         context_parts.append(f"Abstract: {abstract}")
 
     if not context_parts:
-        return [], []
+        return []
 
     context = "\n\n".join(context_parts)
 
     prompt = (
         f"From these highlights of \"{title}\":\n\n"
         f"{context}\n\n"
-        f"Return two sections separated by '---':\n"
-        f"LEARNINGS: 3-5 key facts or insights. Each must be one short sentence "
+        f"Return 4-6 bullet points:\n"
+        f"- First 3-5: key facts or insights. Each one short sentence "
         f"(max 15 words). State facts directly, no filler.\n"
-        f"QUESTIONS: 2-3 open questions or gaps. Each must be one short sentence "
-        f"(max 15 words). Be specific.\n\n"
+        f"- Last bullet: a 'So what?' — why this work matters, what it "
+        f"enables, or what changes because of it. One sentence, max 20 words. "
+        f"Be concrete and specific, not generic.\n\n"
         f"Format:\n"
-        f"- learning one\n"
-        f"- learning two\n"
-        f"---\n"
-        f"- question one\n"
-        f"- question two"
+        f"- fact one\n"
+        f"- fact two\n"
+        f"- So what: why it matters"
     )
 
-    result = _call_claude(prompt, max_tokens=300)
+    result = _call_claude(prompt, max_tokens=250)
     if not result:
-        return [], []
+        return []
 
     learnings = []
-    questions = []
-    target = learnings
     for line in result.strip().split("\n"):
         line = line.strip()
-        if line == "---":
-            target = questions
-            continue
         if not line:
             continue
         cleaned = re.sub(r"^\d+[.)]\s*", "", line)
         cleaned = re.sub(r"^[-*]\s*", "", cleaned)
-        cleaned = re.sub(r"^\*\*.*?\*\*\s*", "", cleaned)  # strip bold labels
-        cleaned = re.sub(r"^(LEARNINGS|QUESTIONS):?\s*", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"^\*\*.*?\*\*\s*", "", cleaned)
+        cleaned = re.sub(r"^(LEARNINGS|SO WHAT):?\s*", "", cleaned, flags=re.IGNORECASE)
         if cleaned:
-            target.append(cleaned)
+            learnings.append(cleaned)
 
-    return learnings[:5], questions[:3]
+    return learnings[:6]
 
 
 
