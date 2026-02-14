@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 #
-# Install a macOS Launch Agent for papers-workflow.
-# Runs the sync every 15 minutes and logs to ~/Library/Logs/.
+# Install macOS Launch Agents for papers-workflow.
+# - Sync agent: runs every 15 minutes
+# - Promote agent: runs daily at 8:30am
+# Logs to ~/Library/Logs/.
 #
 set -euo pipefail
 
@@ -89,6 +91,65 @@ echo "  Schedule:   every 15 minutes"
 echo "  Log:        $LOG"
 echo ""
 echo "Useful commands:"
-echo "  launchctl start $LABEL          # run now"
+echo "  launchctl start $LABEL          # run sync now"
 echo "  tail -f $LOG                    # watch logs"
-echo "  launchctl unload $PLIST         # stop"
+echo "  launchctl unload $PLIST         # stop sync"
+
+# -- Auto-promote agent (daily at 8:30am) --
+PROMOTE_LABEL="com.papers-workflow.promote"
+PROMOTE_PLIST="$HOME/Library/LaunchAgents/${PROMOTE_LABEL}.plist"
+
+# Unload existing promote agent if present
+if launchctl list "$PROMOTE_LABEL" &>/dev/null; then
+    echo ""
+    echo "Unloading existing promote agent..."
+    launchctl unload "$PROMOTE_PLIST" 2>/dev/null || true
+fi
+
+cat > "$PROMOTE_PLIST" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${PROMOTE_LABEL}</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>${EXECUTABLE}</string>
+        <string>--promote</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>28800</integer>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>${LAUNCH_PATH}</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>${LOG}</string>
+    <key>StandardErrorPath</key>
+    <string>${LOG}</string>
+
+    <key>Nice</key>
+    <integer>10</integer>
+</dict>
+</plist>
+EOF
+
+launchctl load "$PROMOTE_PLIST"
+
+echo ""
+echo "Installed and loaded: $PROMOTE_LABEL"
+echo ""
+echo "  Plist:      $PROMOTE_PLIST"
+echo "  Executable: $EXECUTABLE --promote"
+echo "  Schedule:   every 8 hours (fires on wake if overdue)"
+echo "  Log:        $LOG"
+echo ""
+echo "  launchctl start $PROMOTE_LABEL    # run promote now"
+echo "  launchctl unload $PROMOTE_PLIST   # stop promote"

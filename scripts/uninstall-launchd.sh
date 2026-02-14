@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
 #
-# Uninstall the macOS Launch Agent for papers-workflow.
+# Uninstall macOS Launch Agents for papers-workflow.
 #
 set -euo pipefail
 
-LABEL="com.papers-workflow.sync"
-PLIST="$HOME/Library/LaunchAgents/${LABEL}.plist"
+uninstall_agent() {
+    local label="$1"
+    local plist="$HOME/Library/LaunchAgents/${label}.plist"
 
-if [[ ! -f "$PLIST" ]]; then
-    echo "Nothing to uninstall: $PLIST does not exist."
-    exit 0
-fi
+    if [[ ! -f "$plist" ]]; then
+        echo "Nothing to uninstall: $plist does not exist."
+        return
+    fi
 
-launchctl unload "$PLIST" 2>/dev/null || true
-rm "$PLIST"
+    launchctl unload "$plist" 2>/dev/null || true
+    rm "$plist"
+    echo "Uninstalled: $label"
+}
 
-echo "Uninstalled: $LABEL"
+uninstall_agent "com.papers-workflow.sync"
+uninstall_agent "com.papers-workflow.promote"
+
 echo "Log file kept at: $HOME/Library/Logs/papers-workflow.log"

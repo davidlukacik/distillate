@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List, Optional
 
 from papers_workflow import config
 
@@ -168,6 +168,23 @@ def download_annotated_pdf_to(folder: str, doc_name: str, output_path: Path) -> 
         shutil.move(str(pdfs[0]), str(output_path))
         log.info("Downloaded annotated PDF: %s", output_path)
         return True
+
+
+def stat_document(folder: str, doc_name: str) -> Optional[Dict[str, Any]]:
+    """Get document metadata from reMarkable. Returns None on failure."""
+    result = _run(["stat", f"/{folder}/{doc_name}"], check=False)
+    if result.returncode != 0:
+        return None
+    info = {}
+    for line in result.stdout.splitlines():
+        if "ModifiedClient:" in line:
+            info["modified_client"] = line.split(":", 1)[1].strip()
+        if "CurrentPage:" in line:
+            try:
+                info["current_page"] = int(line.split(":", 1)[1].strip())
+            except ValueError:
+                pass
+    return info if info else None
 
 
 def move_document(doc_name: str, from_folder: str, to_folder: str) -> None:

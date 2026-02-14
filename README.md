@@ -170,7 +170,7 @@ With an Anthropic API key set, the script generates for each paper:
 - A **paragraph summary** describing what the paper does, its methods, and findings
 - **Key learnings** — 4-6 bullet points distilling the most important insights, ending with a "so what"
 
-Summaries use Claude Sonnet for quality. Paper suggestions and monthly themes use Claude Haiku for efficiency.
+Summaries and paper suggestions use Claude Sonnet for quality. Monthly themes use Claude Haiku for efficiency.
 
 ## Scheduling (macOS)
 
@@ -184,7 +184,13 @@ Run the included setup script:
 ./scripts/install-launchd.sh
 ```
 
-This installs a Launch Agent that runs the workflow every 15 minutes. It auto-detects your repo path, venv, and `rmapi` location.
+This installs two Launch Agents:
+- **Sync** — runs the workflow every 15 minutes
+- **Auto-promote** — runs `--promote` every 8 hours (fires on wake if the laptop was asleep) to pick 3 papers and move them to the `Papers/` root on reMarkable
+
+Papers you've started reading (turned at least one page) are kept at the root; unread promoted papers are demoted back to Inbox.
+
+The script auto-detects your repo path, venv, and `rmapi` location.
 
 ### Manual setup
 

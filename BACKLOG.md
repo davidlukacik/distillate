@@ -19,15 +19,11 @@
 - ~~Reading analytics dashboard~~ — `Reading Stats.md` Dataview note: monthly breakdown, topics, recent completions.
 - ~~Monthly research themes~~ — `--themes` synthesizes a month's reading into a research narrative.
 - ~~Leafed removal~~ — Never used in practice. Unified into single Read path.
+- ~~Auto-promote~~ — `--promote` runs daily via launchd. Smart demotion skips papers user started reading. Suggestions now use Sonnet.
 
 ---
 
 ## Tier 2 — High value, moderate effort
-
-### Auto-promote suggested papers
-Run `--promote` automatically via launchd (e.g. once daily) so suggested papers appear at the `Papers/` root on reMarkable without manual intervention. Just pick up the tablet and read.
-
-**Why**: The suggest → promote → read loop should be frictionless. Currently requires a manual CLI call.
 
 ### Metadata sync from Zotero
 On each run, re-fetch authors and tags from Zotero for all processed papers. If anything changed, update state.json and regenerate the Obsidian note frontmatter (without re-running highlights or AI summaries).

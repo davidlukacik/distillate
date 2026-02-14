@@ -388,89 +388,121 @@ def _promote() -> None:
     from papers_workflow import config
     from papers_workflow import remarkable_client
     from papers_workflow import summarizer
-    from papers_workflow.state import State
+    from papers_workflow.state import State, acquire_lock, release_lock
 
     config.setup_logging()
 
-    state = State()
+    if not acquire_lock():
+        log.warning("Another instance is running (lock held), exiting")
+        return
 
-    # Demote old promoted papers back to Inbox
-    old_promoted = state.promoted_papers
-    if old_promoted:
-        papers_root_docs = remarkable_client.list_folder(config.RM_FOLDER_PAPERS)
-        for key in old_promoted:
-            doc = state.get_document(key)
-            if not doc or doc["status"] != "on_remarkable":
-                continue
-            rm_name = doc["remarkable_doc_name"]
-            if rm_name in papers_root_docs:
+    try:
+        state = State()
+
+        # Demote old promoted papers back to Inbox (skip if user started reading)
+        old_promoted = state.promoted_papers
+        remaining_promoted = []
+        if old_promoted:
+            papers_root_docs = remarkable_client.list_folder(config.RM_FOLDER_PAPERS)
+            for key in old_promoted:
+                doc = state.get_document(key)
+                if not doc or doc["status"] != "on_remarkable":
+                    continue
+                rm_name = doc["remarkable_doc_name"]
+                if rm_name not in papers_root_docs:
+                    # Paper was manually moved — skip demotion for safety
+                    log.info("Skipping demotion (not at Papers root): %s", doc["title"])
+                    continue
+
+                # Check if user started reading
+                stat = remarkable_client.stat_document(config.RM_FOLDER_PAPERS, rm_name)
+                if stat and stat.get("current_page", 0) > 0:
+                    log.info("User started reading, not demoting: %s", doc["title"])
+                    remaining_promoted.append(key)
+                    continue
+
+                if stat is None:
+                    # stat failed — don't demote for safety
+                    log.info("Could not stat document, skipping demotion: %s", doc["title"])
+                    remaining_promoted.append(key)
+                    continue
+
                 remarkable_client.move_document(
                     rm_name, config.RM_FOLDER_PAPERS, config.RM_FOLDER_INBOX,
                 )
                 log.info("Demoted: %s", doc["title"])
-        state.promoted_papers = []
-        state.save()
+            state.promoted_papers = remaining_promoted
+            state.save()
 
-    # Gather unread papers for suggestion
-    unread = state.documents_with_status("on_remarkable")
-    if not unread:
-        log.info("No papers in reading queue, nothing to promote")
-        return
+        # Gather unread papers for suggestion
+        unread = state.documents_with_status("on_remarkable")
+        if not unread:
+            log.info("No papers in reading queue, nothing to promote")
+            return
 
-    # Build enriched lists for suggestion engine
-    unread_enriched = []
-    for doc in unread:
-        meta = doc.get("metadata", {})
-        unread_enriched.append({
-            "title": doc["title"],
-            "tags": meta.get("tags", []),
-            "paper_type": meta.get("paper_type", ""),
-            "uploaded_at": doc.get("uploaded_at", ""),
-        })
+        # Build enriched lists for suggestion engine
+        unread_enriched = []
+        for doc in unread:
+            meta = doc.get("metadata", {})
+            unread_enriched.append({
+                "title": doc["title"],
+                "tags": meta.get("tags", []),
+                "paper_type": meta.get("paper_type", ""),
+                "uploaded_at": doc.get("uploaded_at", ""),
+            })
 
-    since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-    recent = state.documents_processed_since(since)
-    recent_enriched = []
-    for doc in recent:
-        meta = doc.get("metadata", {})
-        recent_enriched.append({
-            "title": doc["title"],
-            "tags": meta.get("tags", []),
-            "summary": doc.get("summary", ""),
-        })
+        since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        recent = state.documents_processed_since(since)
+        recent_enriched = []
+        for doc in recent:
+            meta = doc.get("metadata", {})
+            recent_enriched.append({
+                "title": doc["title"],
+                "tags": meta.get("tags", []),
+                "summary": doc.get("summary", ""),
+            })
 
-    # Ask Claude to pick 3
-    result = summarizer.suggest_papers(unread_enriched, recent_enriched)
-    if not result:
-        log.warning("Could not generate suggestions")
-        return
+        # Ask Claude to pick 3
+        result = summarizer.suggest_papers(unread_enriched, recent_enriched)
+        if not result:
+            log.warning("Could not generate suggestions")
+            return
 
-    # Match suggested titles back to documents
-    inbox_docs = remarkable_client.list_folder(config.RM_FOLDER_INBOX)
-    title_to_key = {doc["title"].lower(): doc["zotero_item_key"] for doc in unread}
-    title_to_rm = {doc["title"].lower(): doc["remarkable_doc_name"] for doc in unread}
+        # Match suggested titles back to documents
+        inbox_docs = remarkable_client.list_folder(config.RM_FOLDER_INBOX)
+        title_to_key = {doc["title"].lower(): doc["zotero_item_key"] for doc in unread}
+        title_to_rm = {doc["title"].lower(): doc["remarkable_doc_name"] for doc in unread}
 
-    promoted_keys = []
-    for line in result.strip().split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-        for title_lower, key in title_to_key.items():
-            if title_lower in line.lower() and key not in promoted_keys:
-                rm_name = title_to_rm[title_lower]
-                if rm_name in inbox_docs:
-                    remarkable_client.move_document(
-                        rm_name, config.RM_FOLDER_INBOX, config.RM_FOLDER_PAPERS,
-                    )
-                    promoted_keys.append(key)
-                    log.info("Promoted: %s", rm_name)
+        promoted_keys = list(remaining_promoted)
+        for line in result.strip().split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            for title_lower, key in title_to_key.items():
+                if title_lower in line.lower() and key not in promoted_keys:
+                    rm_name = title_to_rm[title_lower]
+                    if rm_name in inbox_docs:
+                        remarkable_client.move_document(
+                            rm_name, config.RM_FOLDER_INBOX, config.RM_FOLDER_PAPERS,
+                        )
+                        doc = state.get_document(key)
+                        if doc:
+                            doc["promoted_at"] = datetime.now(timezone.utc).isoformat()
+                        promoted_keys.append(key)
+                        log.info("Promoted: %s", rm_name)
+                    break
+            if len(promoted_keys) >= 3 + len(remaining_promoted):
                 break
-        if len(promoted_keys) >= 3:
-            break
 
-    state.promoted_papers = promoted_keys
-    state.save()
-    log.info("Promoted %d paper(s) to Papers root", len(promoted_keys))
+        state.promoted_papers = promoted_keys
+        state.save()
+        log.info("Promoted %d paper(s) to Papers root", len(promoted_keys))
+
+    except Exception:
+        log.exception("Unexpected error in promote")
+        raise
+    finally:
+        release_lock()
 
 
 def main():

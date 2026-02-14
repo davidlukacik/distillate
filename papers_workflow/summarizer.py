@@ -177,7 +177,7 @@ def suggest_papers(
         f"[number]. [title] — [reason]"
     )
 
-    return _call_claude(prompt, max_tokens=300)
+    return _call_claude(prompt, max_tokens=300, model=config.CLAUDE_SMART_MODEL)
 
 
 def generate_monthly_themes(
