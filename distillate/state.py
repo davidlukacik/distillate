@@ -1,4 +1,4 @@
-"""Persistent state management for the papers workflow.
+"""Persistent state management for Distillate.
 
 Tracks Zotero library version, document mappings between Zotero and reMarkable,
 and processing status. State is stored as JSON and written atomically to prevent

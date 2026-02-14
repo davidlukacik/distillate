@@ -1,6 +1,6 @@
-# Papers Workflow
+# Distillate
 
-Automate your paper reading workflow between **Zotero**, **reMarkable**, and **Obsidian**.
+Distill research papers from Zotero through reMarkable into structured notes.
 
 ```
 Save paper in Zotero  ──▶  PDF uploaded to reMarkable Papers/Inbox
@@ -12,7 +12,7 @@ Save paper in Zotero  ──▶  PDF uploaded to reMarkable Papers/Inbox
                          ├── Annotated PDF → Obsidian vault
                          ├── Note + highlights + AI summary → Obsidian
                          ├── PDF deleted from Zotero (free storage)
-                         └── Document → Papers/Vault on reMarkable
+                         └── Document → Papers/Saved on reMarkable
 ```
 
 ## Prerequisites
@@ -122,7 +122,7 @@ On first run, the script sets a watermark at the current Zotero library version.
 7. Deletes the original PDF from Zotero to free storage (metadata is kept)
 8. Creates an Obsidian note with metadata, highlights, AI summary (paragraph + key learnings), and an embedded PDF
 9. Updates the Reading Log and tags the paper `read` in Zotero
-10. Moves processed documents to `Papers/Vault` on reMarkable
+10. Moves processed documents to `Papers/Saved` on reMarkable
 
 ### Additional commands
 

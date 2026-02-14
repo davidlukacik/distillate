@@ -1,4 +1,4 @@
-"""Papers workflow entry point.
+"""Distillate entry point.
 
 One-shot script: polls Zotero and reMarkable, processes papers, then exits.
 Designed to be run on a schedule via cron or launchd.
