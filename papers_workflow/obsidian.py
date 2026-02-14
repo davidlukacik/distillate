@@ -450,14 +450,27 @@ def append_to_reading_log(
 
     existing = log_path.read_text()
     sanitized = _sanitize_note_name(title)
-    bullet = f"- {today} — **{status}**: [[{sanitized}|{title}]] — {summary}\n"
+    bullet = f"- {today} — **{status}**: [[{sanitized}|{title}]] — {summary}"
 
-    # Insert right after the "# Reading Log" header
-    header_end = existing.index("\n\n") + 2 if "\n\n" in existing else len(existing)
-    updated = existing[:header_end] + bullet + existing[header_end:]
+    # Check for existing entry and replace it (prevents duplicates on reprocess)
+    link_marker = f"[[{sanitized}|"
+    lines = existing.split("\n")
+    replaced = False
+    for i, line in enumerate(lines):
+        if link_marker in line:
+            lines[i] = bullet
+            replaced = True
+            break
 
-    log_path.write_text(updated)
-    log.info("Appended to Reading Log: %s (%s)", title, status)
+    if replaced:
+        log_path.write_text("\n".join(lines))
+        log.info("Updated Reading Log entry: %s (%s)", title, status)
+    else:
+        # Insert right after the "# Reading Log" header
+        header_end = existing.index("\n\n") + 2 if "\n\n" in existing else len(existing)
+        updated = existing[:header_end] + bullet + "\n" + existing[header_end:]
+        log_path.write_text(updated)
+        log.info("Appended to Reading Log: %s (%s)", title, status)
 
 
 def get_obsidian_uri(title: str, subfolder: str = "Read") -> Optional[str]:
