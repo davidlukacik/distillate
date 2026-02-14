@@ -493,7 +493,7 @@ def main():
         _dry_run()
         return
 
-if "--backfill-s2" in sys.argv:
+    if "--backfill-s2" in sys.argv:
         _backfill_s2()
         return
 
