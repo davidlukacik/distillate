@@ -406,6 +406,20 @@ def extract_metadata(item: Dict[str, Any]) -> Dict[str, Any]:
     # Strip journal suffix added by some Zotero translators (e.g. "Title | Science")
     if " | " in title:
         title = title.rsplit(" | ", 1)[0].strip()
+    # Strip author prefix (e.g. "Dario Amodei — Title" → "Title")
+    if " — " in title:
+        prefix, rest = title.split(" — ", 1)
+        creator_names = {
+            c.get("lastName", "").lower()
+            for c in data.get("creators", [])
+        } | {
+            c.get("name", "").lower()
+            for c in data.get("creators", [])
+        }
+        creator_names.discard("")
+        prefix_lower = prefix.lower()
+        if prefix_lower in creator_names or prefix_lower.split()[-1] in creator_names:
+            title = rest.strip()
     creators = data.get("creators", [])
     authors = [
         c.get("lastName") or c.get("name", "Unknown")

@@ -302,6 +302,46 @@ class TestTitleStripping:
         meta = extract_metadata(item)
         assert meta["title"] == "A | B"
 
+    def test_strips_author_prefix_lastname(self):
+        from papers_workflow.zotero_client import extract_metadata
+
+        item = {"data": {
+            "title": "Dario Amodei — Machines of Loving Grace",
+            "creators": [{"creatorType": "author", "firstName": "Dario", "lastName": "Amodei"}],
+        }}
+        meta = extract_metadata(item)
+        assert meta["title"] == "Machines of Loving Grace"
+
+    def test_strips_author_prefix_full_name(self):
+        from papers_workflow.zotero_client import extract_metadata
+
+        item = {"data": {
+            "title": "John Smith — A Great Paper",
+            "creators": [{"creatorType": "author", "name": "John Smith"}],
+        }}
+        meta = extract_metadata(item)
+        assert meta["title"] == "A Great Paper"
+
+    def test_preserves_emdash_when_not_author(self):
+        from papers_workflow.zotero_client import extract_metadata
+
+        item = {"data": {
+            "title": "Methods — Results and Discussion",
+            "creators": [{"creatorType": "author", "lastName": "Jones"}],
+        }}
+        meta = extract_metadata(item)
+        assert meta["title"] == "Methods — Results and Discussion"
+
+    def test_preserves_emdash_no_creators(self):
+        from papers_workflow.zotero_client import extract_metadata
+
+        item = {"data": {
+            "title": "Something — Other Thing",
+            "creators": [],
+        }}
+        meta = extract_metadata(item)
+        assert meta["title"] == "Something — Other Thing"
+
 
 # ---------------------------------------------------------------------------
 # Engagement in Obsidian note frontmatter
