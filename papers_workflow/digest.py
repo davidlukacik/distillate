@@ -31,10 +31,12 @@ def _tag_pills_html(tags: list) -> str:
     pills = []
     for tag in tags:
         bg = _PILL_COLORS[hash(tag) % len(_PILL_COLORS)]
+        # Use a table cell to bypass email client minimum font-size enforcement
         pills.append(
             f'<span style="display:inline-block;background:{bg};'
-            f'color:#333;padding:2px 8px;border-radius:12px;'
-            f'font-size:8px;margin:2px 2px;">{tag}</span>'
+            f'color:#555;padding:1px 6px;border-radius:10px;'
+            f'font-size:11px;line-height:16px;margin:1px 1px;'
+            f'mso-line-height-rule:exactly;">{tag}</span>'
         )
     return " ".join(pills)
 
@@ -42,11 +44,12 @@ def _tag_pills_html(tags: list) -> str:
 def _reading_velocity_html(state: State) -> str:
     """Render reading velocity: 'Read N papers this week, M this month.'"""
     now = datetime.now(timezone.utc)
-    week_ago = (now - timedelta(days=7)).isoformat()
-    month_ago = (now - timedelta(days=30)).isoformat()
+    # Use start-of-day so "this week" covers full calendar days
+    week_ago = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=7)
+    month_ago = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=30)
 
-    week_count = len(state.documents_processed_since(week_ago))
-    month_count = len(state.documents_processed_since(month_ago))
+    week_count = len(state.documents_processed_since(week_ago.isoformat()))
+    month_count = len(state.documents_processed_since(month_ago.isoformat()))
 
     return (
         f'<p style="color:#666;font-size:14px;margin-bottom:16px;">'
