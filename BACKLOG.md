@@ -9,7 +9,7 @@
 - ~~Weekly email digest~~ — `--digest` via Resend with read/leafed papers, summaries, URLs.
 - ~~Zotero notes sync~~ — Summary + highlights pushed to Zotero child note.
 - ~~Dry run mode~~ — `--dry-run` previews without changes.
-- ~~Read vs Leafed triage~~ — Two processing paths with different depth.
+- ~~Read vs Leafed triage~~ — Removed. Never used in practice; unified into single Read path.
 - ~~Obsidian deep links~~ — "Open in Obsidian" attachment in Zotero.
 - ~~Safety improvements~~ — Stale lock, create-then-delete, try-except, per-paper saves.
 - ~~Two-column highlights~~ — y-sorted merging with boundary deduplication.
@@ -17,8 +17,8 @@
 - ~~Topic tags~~ — 3-5 tags + paper type at ingestion. `--backfill-tags` for existing papers.
 - ~~Paper suggestions~~ — `--suggest` daily email, `--promote` moves picks to RM root.
 - ~~GitHub Actions~~ — Scheduled `--suggest`, `--digest`, `--sync-state`.
-- ~~Semantic Scholar enrichment~~ — Citation counts + 5 related papers at ingestion. `--backfill-s2` for existing papers.
-- ~~Structured highlights~~ — Claude classifies into Key Findings, Methods, Limitations, Future Work, Background.
+- ~~Semantic Scholar enrichment~~ — Citation counts at ingestion. `--backfill-s2` for existing papers.
+- ~~Structured highlights~~ — Tried AI classification into categories; replaced with page-grouped highlights.
 - ~~Reading analytics dashboard~~ — `Reading Stats.md` Dataview note: monthly breakdown, topics, status distribution.
 - ~~Monthly research themes~~ — `--themes` synthesizes a month's reading into a research narrative. GitHub Actions on 1st.
 

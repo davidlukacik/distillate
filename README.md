@@ -10,7 +10,7 @@ Save paper in Zotero  ──▶  PDF uploaded to reMarkable Papers/Inbox
                                     │
                          Script picks it up:
                          ├── Annotated PDF → Obsidian vault
-                         ├── Note + highlights → Obsidian
+                         ├── Note + highlights + AI summary → Obsidian
                          ├── PDF deleted from Zotero (free storage)
                          └── Document → Papers/Vault on reMarkable
 ```
@@ -119,10 +119,9 @@ On first run, the script sets a watermark at the current Zotero library version.
 5. Extracts highlighted text from the reMarkable document
 6. Renders an annotated PDF with highlights and saves it to the Obsidian vault
 7. Deletes the original PDF from Zotero to free storage (metadata is kept)
-8. Creates an Obsidian note with metadata, highlights, and an embedded PDF link
-9. **Checks** `Papers/Leafed` for papers you leafed through (minimal notes, no highlights)
-10. Moves processed documents to `Papers/Vault` on reMarkable
-11. Sends a macOS notification summarizing what happened
+8. Creates an Obsidian note with metadata, highlights, AI summary, and an embedded PDF link
+9. Moves processed documents to `Papers/Vault` on reMarkable
+10. Sends a macOS notification summarizing what happened
 
 ### How highlights work
 
@@ -219,11 +218,9 @@ All settings are in `.env`. See [.env.example](.env.example) for the full list.
 | `RM_FOLDER_PAPERS` | `Papers` | Parent folder on reMarkable |
 | `RM_FOLDER_INBOX` | `Papers/Inbox` | reMarkable folder for unread papers |
 | `RM_FOLDER_READ` | `Papers/Read` | reMarkable folder — move papers here when done reading |
-| `RM_FOLDER_LEAFED` | `Papers/Leafed` | reMarkable folder — move papers here if just leafed through |
 | `RM_FOLDER_VAULT` | `Papers/Vault` | reMarkable folder for processed papers |
 | `ZOTERO_TAG_INBOX` | `inbox` | Zotero tag for papers sent to reMarkable |
 | `ZOTERO_TAG_READ` | `read` | Zotero tag for fully read papers |
-| `ZOTERO_TAG_LEAFED` | `leafed` | Zotero tag for leafed-through papers |
 | `OBSIDIAN_VAULT_PATH` | *(empty)* | Path to Obsidian vault (disables Obsidian if unset) |
 | `OBSIDIAN_PAPERS_FOLDER` | `Papers` | Subfolder for paper notes |
 
@@ -232,7 +229,7 @@ All settings are in `.env`. See [.env.example](.env.example) for the full list.
 1. Save a paper to Zotero using the browser connector (works on iOS too)
 2. Wait for the script to run (or run it manually)
 3. Read and highlight the paper on your reMarkable
-4. When done, move the document from `Papers/Inbox` to `Papers/Read` (or `Papers/Leafed` if you just skimmed it)
+4. When done, move the document from `Papers/Inbox` to `Papers/Read`
 5. The next script run will sync everything back
 
 ## License

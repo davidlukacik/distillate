@@ -211,19 +211,8 @@ def _dry_run() -> None:
     else:
         log.info("[dry-run] No read papers to process")
 
-    # Step 2b: Check reMarkable for leafed papers
-    leafed_docs = remarkable_client.list_folder(config.RM_FOLDER_LEAFED)
-
-    leafed_matches = [d for d in on_remarkable if d["remarkable_doc_name"] in leafed_docs]
-    if leafed_matches:
-        log.info("[dry-run] Would process %d leafed paper(s):", len(leafed_matches))
-        for doc in leafed_matches:
-            log.info("  - %s", doc["title"])
-    else:
-        log.info("[dry-run] No leafed papers to process")
-
     # Summary
-    total = len(read_matches) + len(leafed_matches)
+    total = len(read_matches)
     if awaiting:
         total += len(awaiting)
     if total:
@@ -925,93 +914,6 @@ def main():
 
             except Exception:
                 log.exception("Failed to process read paper '%s', skipping", rm_name)
-                continue
-
-        # -- Step 2b: Poll reMarkable for leafed papers --
-        log.info("Step 2b: Checking reMarkable for leafed papers...")
-
-        leafed_docs = remarkable_client.list_folder(config.RM_FOLDER_LEAFED)
-
-        for doc in on_remarkable:
-            rm_name = doc["remarkable_doc_name"]
-
-            if rm_name not in leafed_docs:
-                continue
-
-            log.info("Found leafed paper: %s", rm_name)
-            item_key = doc["zotero_item_key"]
-
-            try:
-                # Move original PDF from Inbox to Leafed folder
-                moved = obsidian.move_inbox_pdf_to_leafed(doc["title"])
-                pdf_filename = moved.name if moved else None
-
-                # Update linked attachment to point to moved PDF
-                linked = zotero_client.get_linked_attachment(item_key)
-                if moved:
-                    new_att = zotero_client.create_linked_attachment(
-                        item_key, moved.name, str(moved),
-                    )
-                    if new_att and linked:
-                        zotero_client.delete_attachment(linked["key"])
-                elif linked:
-                    zotero_client.delete_attachment(linked["key"])
-
-                # Update Zotero tag
-                zotero_client.replace_tag(
-                    item_key, config.ZOTERO_TAG_INBOX, config.ZOTERO_TAG_LEAFED,
-                )
-
-                # Create minimal Obsidian note
-                meta = doc.get("metadata", {})
-                obsidian.ensure_dataview_note()
-                obsidian.ensure_stats_note()
-                obsidian.create_leafed_note(
-                    title=doc["title"],
-                    authors=doc["authors"],
-                    date_added=doc["uploaded_at"],
-                    zotero_item_key=item_key,
-                    pdf_filename=pdf_filename,
-                    doi=meta.get("doi", ""),
-                    url=meta.get("url", ""),
-                    publication_date=meta.get("publication_date", ""),
-                    journal=meta.get("journal", ""),
-                    topic_tags=meta.get("tags"),
-                    citation_count=meta.get("citation_count", 0),
-                )
-
-                # Add Obsidian deep link in Zotero
-                obsidian_uri = obsidian.get_obsidian_uri(doc["title"], subfolder="Leafed")
-                if obsidian_uri:
-                    zotero_client.create_obsidian_link(item_key, obsidian_uri)
-
-                # Generate leafed summary
-                leafed_summary = summarizer.summarize_leafed_paper(
-                    doc["title"], abstract=meta.get("abstract", ""),
-                )
-
-                # Append to reading log
-                obsidian.append_to_reading_log(
-                    doc["title"], "Leafed", leafed_summary,
-                )
-
-                # Sync note to Zotero
-                zotero_note_html = zotero_client._build_note_html(takeaway=leafed_summary)
-                zotero_client.set_note(item_key, zotero_note_html)
-
-                # Move to Vault on reMarkable
-                remarkable_client.move_document(
-                    rm_name, config.RM_FOLDER_LEAFED, config.RM_FOLDER_VAULT,
-                )
-
-                # Update state
-                state.mark_processed(item_key, summary=leafed_summary, reading_status="leafed")
-                state.save()
-                synced_count += 1
-                log.info("Processed (leafed): %s", rm_name)
-
-            except Exception:
-                log.exception("Failed to process leafed paper '%s', skipping", rm_name)
                 continue
 
         state.touch_poll_timestamp()
