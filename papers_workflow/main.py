@@ -100,13 +100,11 @@ def _reprocess(args: list[str]) -> None:
                 h for page_hl in (highlights or {}).values() for h in page_hl
             ] or None
 
-            # Reuse stored summary, only call API if missing
-            summary = doc.get("summary", "")
-            if not summary:
-                summary = summarizer.summarize_read_paper(
-                    title, abstract=meta.get("abstract", ""),
-                    highlights=flat_highlights,
-                )
+            # Always regenerate summary on reprocess
+            summary = summarizer.summarize_read_paper(
+                title, abstract=meta.get("abstract", ""),
+                highlights=flat_highlights,
+            )
 
             # Extract key learnings and open questions
             learnings, questions = summarizer.extract_insights(
