@@ -333,14 +333,11 @@ def set_note(parent_key: str, html_content: str) -> Optional[str]:
 
 
 def _build_note_html(
-    takeaway: str = "",
     summary: str = "",
     highlights: Optional[Union[List[str], Dict[int, List[str]]]] = None,
 ) -> str:
-    """Build HTML content for a Zotero note from summaries and highlights."""
+    """Build HTML content for a Zotero note from summary and highlights."""
     parts = []
-    if takeaway:
-        parts.append(f"<blockquote>{takeaway}</blockquote>")
     if summary:
         parts.append(f"<p>{summary}</p>")
     if highlights:

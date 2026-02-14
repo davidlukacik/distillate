@@ -13,12 +13,11 @@ def summarize_read_paper(
     title: str,
     abstract: str = "",
     highlights: Optional[List[str]] = None,
-) -> Tuple[str, str]:
-    """Generate summaries for a read paper.
+) -> str:
+    """Generate a high-level summary for a read paper.
 
-    Returns (note_summary, log_sentence):
-      - note_summary: 3-4 sentence paragraph for the Obsidian note
-      - log_sentence: one sentence for the reading log
+    Returns a 2-3 sentence summary describing what the paper does and its
+    core thesis. Used identically in the Obsidian note and reading log.
     """
     if not config.ANTHROPIC_API_KEY:
         return _fallback_read(title, abstract, highlights)
@@ -30,34 +29,24 @@ def summarize_read_paper(
         context_parts.append("Highlights from reading:\n" + "\n".join(f"- {h}" for h in highlights))
 
     if not context_parts:
-        return f"Read *{title}*.", f"Read *{title}*."
+        return f"Read *{title}*."
 
     context = "\n\n".join(context_parts)
 
     prompt = (
         f"You are summarizing a research paper for a personal reading log.\n\n"
         f"Paper: {title}\n\n{context}\n\n"
-        f"Provide two summaries, separated by the exact line '---':\n"
-        f"1. A paragraph (3-4 sentences) for the top of my note. State the key "
-        f"idea directly as fact — never start with 'this paper' or 'the authors'. "
-        f"Include specific methods, results, or numbers where possible.\n"
-        f"2. The core idea in ONE punchy sentence (25 words max). Focus on the single "
-        f"most important takeaway — don't rephrase or elaborate. Never start "
-        f"with 'the paper' or 'this study'. Just state the idea directly.\n\n"
-        f"Format:\n[paragraph]\n---\n[sentences]"
+        f"Write a 2-3 sentence summary that describes what this paper does and "
+        f"its core thesis. Write so that someone who read this paper years ago "
+        f"can immediately recall what it was about. State the idea directly as "
+        f"fact — never start with 'this paper' or 'the authors'. Include "
+        f"specific methods, results, or numbers where possible.\n\n"
+        f"Return ONLY the summary, nothing else."
     )
 
     result = _call_claude(prompt)
-    if result and "---" in result:
-        parts = result.split("---", 1)
-        note_summary = parts[0].strip()
-        log_sentence = parts[1].strip()
-        return note_summary, log_sentence
-
     if result:
-        # Couldn't parse, use full result as note summary, first sentence as log
-        sentences = result.split(". ")
-        return result, sentences[0].strip() + ("." if not sentences[0].strip().endswith(".") else "")
+        return result
 
     return _fallback_read(title, abstract, highlights)
 
@@ -286,19 +275,16 @@ def _call_claude(prompt: str, max_tokens: int = 400) -> Optional[str]:
 
 def _fallback_read(
     title: str, abstract: str, highlights: Optional[List[str]],
-) -> Tuple[str, str]:
-    """Fallback summaries when Claude API is unavailable."""
+) -> str:
+    """Fallback summary when Claude API is unavailable."""
     if abstract:
         sentences = abstract.replace("\n", " ").split(". ")
-        note = ". ".join(sentences[:3]).strip()
-        if not note.endswith("."):
-            note += "."
-        log_s = sentences[0].strip()
-        if not log_s.endswith("."):
-            log_s += "."
-        return note, log_s
+        summary = ". ".join(sentences[:3]).strip()
+        if not summary.endswith("."):
+            summary += "."
+        return summary
     if highlights:
-        return highlights[0], highlights[0]
-    return f"Read *{title}*.", f"Read *{title}*."
+        return highlights[0]
+    return f"Read *{title}*."
 
 

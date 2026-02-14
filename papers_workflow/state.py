@@ -121,7 +121,6 @@ class State:
     def mark_processed(
         self, zotero_item_key: str,
         summary: str = "",
-        note_summary: str = "",
         reading_status: str = "read",
     ) -> None:
         doc = self._data["documents"].get(zotero_item_key)
@@ -131,8 +130,6 @@ class State:
             doc["reading_status"] = reading_status
             if summary:
                 doc["summary"] = summary
-            if note_summary:
-                doc["note_summary"] = note_summary
             # Remove from promoted list if present
             promoted = self._data.get("promoted_papers", [])
             if zotero_item_key in promoted:

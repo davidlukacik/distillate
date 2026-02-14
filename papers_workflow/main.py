@@ -100,11 +100,10 @@ def _reprocess(args: list[str]) -> None:
                 h for page_hl in (highlights or {}).values() for h in page_hl
             ] or None
 
-            # Reuse stored summaries, only call API if missing
-            log_sentence = doc.get("summary", "")
-            note_summary = doc.get("note_summary", "")
-            if not log_sentence or not note_summary:
-                note_summary, log_sentence = summarizer.summarize_read_paper(
+            # Reuse stored summary, only call API if missing
+            summary = doc.get("summary", "")
+            if not summary:
+                summary = summarizer.summarize_read_paper(
                     title, abstract=meta.get("abstract", ""),
                     highlights=flat_highlights,
                 )
@@ -132,8 +131,7 @@ def _reprocess(args: list[str]) -> None:
                 url=meta.get("url", ""),
                 publication_date=meta.get("publication_date", ""),
                 journal=meta.get("journal", ""),
-                summary=note_summary,
-                takeaway=log_sentence,
+                summary=summary,
                 topic_tags=meta.get("tags"),
                 citation_count=meta.get("citation_count", 0),
                 key_learnings=learnings,
@@ -147,18 +145,15 @@ def _reprocess(args: list[str]) -> None:
 
             # Sync note to Zotero
             zotero_note_html = zotero_client._build_note_html(
-                takeaway=log_sentence, summary=note_summary,
-                highlights=highlights or None,
+                summary=summary, highlights=highlights or None,
             )
             zotero_client.set_note(item_key, zotero_note_html)
 
             # Update reading log
-            obsidian.append_to_reading_log(title, "Read", log_sentence)
+            obsidian.append_to_reading_log(title, "Read", summary)
 
-            # Save summaries to state
-            state.mark_processed(
-                item_key, summary=log_sentence, note_summary=note_summary,
-            )
+            # Save summary to state
+            state.mark_processed(item_key, summary=summary)
             state.save()
 
             log.info("Reprocessed: %s", title)
@@ -865,8 +860,8 @@ def main():
                     h for page_hl in (highlights or {}).values() for h in page_hl
                 ] or None
 
-                # Generate AI summaries
-                note_summary, log_sentence = summarizer.summarize_read_paper(
+                # Generate AI summary
+                summary = summarizer.summarize_read_paper(
                     doc["title"],
                     abstract=meta.get("abstract", ""),
                     highlights=flat_highlights,
@@ -894,8 +889,7 @@ def main():
                     url=meta.get("url", ""),
                     publication_date=meta.get("publication_date", ""),
                     journal=meta.get("journal", ""),
-                    summary=note_summary,
-                    takeaway=log_sentence,
+                    summary=summary,
                     topic_tags=meta.get("tags"),
                     citation_count=meta.get("citation_count", 0),
                     key_learnings=learnings,
@@ -909,13 +903,12 @@ def main():
 
                 # Sync note to Zotero
                 zotero_note_html = zotero_client._build_note_html(
-                    takeaway=log_sentence, summary=note_summary,
-                    highlights=highlights or None,
+                    summary=summary, highlights=highlights or None,
                 )
                 zotero_client.set_note(item_key, zotero_note_html)
 
                 # Append to reading log
-                obsidian.append_to_reading_log(doc["title"], "Read", log_sentence)
+                obsidian.append_to_reading_log(doc["title"], "Read", summary)
 
                 # Move to Vault on reMarkable
                 remarkable_client.move_document(
@@ -923,9 +916,7 @@ def main():
                 )
 
                 # Update state
-                state.mark_processed(
-                    item_key, summary=log_sentence, note_summary=note_summary,
-                )
+                state.mark_processed(item_key, summary=summary)
                 state.save()
                 synced_count += 1
                 log.info("Processed: %s", rm_name)

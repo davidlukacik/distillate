@@ -230,7 +230,6 @@ def create_paper_note(
     publication_date: str = "",
     journal: str = "",
     summary: str = "",
-    takeaway: str = "",
     topic_tags: Optional[List[str]] = None,
     citation_count: int = 0,
     key_learnings: Optional[List[str]] = None,
@@ -279,8 +278,7 @@ def create_paper_note(
     # Optional PDF embed in note body
     pdf_embed = f"![[{pdf_filename}]]\n\n" if pdf_filename else ""
 
-    # Short takeaway as blockquote, then longer summary
-    takeaway_md = f"> {takeaway}\n\n" if takeaway else ""
+    # Summary paragraph
     summary_md = f"{summary}\n\n" if summary else ""
 
     # Optional key learnings section
@@ -315,7 +313,7 @@ tags:
 
 # {title}
 
-{takeaway_md}{summary_md}{learnings_md}{questions_md}{pdf_embed}{abstract_md}## Highlights
+{summary_md}{learnings_md}{questions_md}{pdf_embed}{abstract_md}## Highlights
 
 {highlights_md}
 """
