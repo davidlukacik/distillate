@@ -253,7 +253,7 @@ def _paper_html(p):
         )
 
     summary_html = f" &mdash; {summary}" if summary else ""
-    pills_html = f" {_tag_pills_html(tags)}" if tags else ""
+    pills_html = "" if tags else ""
     url_html = (
         f'<br><a href="{url}" style="color:#666;font-size:13px;">{url}</a>'
         if url else ""
@@ -465,7 +465,7 @@ def _build_suggestion_body(suggestion_text, unread, state: State):
 
         title_html = f"<strong>{title_part.strip()}</strong>"
         reason_html = f" &mdash; {reason_part}" if reason_part else ""
-        pills_html = f" {_tag_pills_html(tags)}" if tags else ""
+        pills_html = "" if tags else ""
         url_html = (
             f'<br><a href="{url}" style="color:#666;font-size:13px;">{url}</a>'
             if url else ""
