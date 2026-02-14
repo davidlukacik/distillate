@@ -157,7 +157,10 @@ def _reprocess(args: list[str]) -> None:
             # Update reading log
             obsidian.append_to_reading_log(title, one_liner, date_read=read_date)
 
-            # Save summary to state
+            # Save summary and highlight count to state
+            doc["highlight_count"] = sum(
+                len(v) for v in (highlights or {}).values()
+            )
             state.mark_processed(item_key, summary=one_liner)
             state.save()
 
@@ -207,6 +210,11 @@ def _dry_run() -> None:
                 log.info("[dry-run] No new papers to send")
         else:
             log.info("[dry-run] All changed items already tracked")
+
+        # Check for metadata changes on tracked papers
+        existing_changed = [k for k in changed_keys if state.has_document(k)]
+        if existing_changed:
+            log.info("[dry-run] %d tracked paper(s) have Zotero changes (would check metadata)", len(existing_changed))
 
     # Step 2: Check reMarkable for read papers
     on_remarkable = state.documents_with_status("on_remarkable")
@@ -578,9 +586,33 @@ def main():
                 title = doc["title"]
                 att_key = doc["zotero_attachment_key"]
                 item_key = doc["zotero_item_key"]
+                meta = doc.get("metadata", {})
                 try:
-                    pdf_bytes = zotero_client.download_pdf(att_key)
-                    log.info("PDF now available for '%s' (%d bytes)", title, len(pdf_bytes))
+                    pdf_bytes = None
+
+                    # Try Zotero cloud first (if we have an attachment key)
+                    if att_key:
+                        try:
+                            pdf_bytes = zotero_client.download_pdf(att_key)
+                            log.info("PDF now available for '%s' (%d bytes)", title, len(pdf_bytes))
+                        except requests.exceptions.HTTPError as e:
+                            if e.response is not None and e.response.status_code == 404:
+                                log.info("PDF still not synced in Zotero for '%s'", title)
+                            else:
+                                raise
+
+                    # Fall back to direct URL download (arxiv, biorxiv, etc.)
+                    if pdf_bytes is None:
+                        paper_url = meta.get("url", "")
+                        if paper_url:
+                            pdf_bytes = zotero_client.download_pdf_from_url(paper_url)
+                            if pdf_bytes:
+                                log.info("Downloaded PDF from URL for '%s'", title)
+
+                    if pdf_bytes is None:
+                        log.info("No PDF available yet for '%s', will retry", title)
+                        continue
+
                     remarkable_client.upload_pdf_bytes(
                         pdf_bytes, config.RM_FOLDER_INBOX, title
                     )
@@ -589,22 +621,15 @@ def main():
                         new_att = zotero_client.create_linked_attachment(
                             item_key, saved.name, str(saved),
                         )
-                        if new_att:
+                        if new_att and att_key:
                             zotero_client.delete_attachment(att_key)
-                        else:
-                            log.warning("Could not create linked attachment for '%s', keeping imported PDF", title)
-                    else:
+                    elif att_key:
                         zotero_client.delete_attachment(att_key)
                     zotero_client.add_tag(item_key, config.ZOTERO_TAG_INBOX)
                     state.set_status(item_key, "on_remarkable")
                     state.save()
                     sent_count += 1
                     log.info("Sent to reMarkable: %s", title)
-                except requests.exceptions.HTTPError as e:
-                    if e.response is not None and e.response.status_code == 404:
-                        log.info("PDF still not synced for '%s', will retry", title)
-                    else:
-                        log.warning("Failed to retry '%s': %s", title, e)
                 except Exception:
                     log.exception("Failed to retry '%s'", title)
             state.save()
@@ -667,37 +692,48 @@ def main():
 
                             # Find PDF attachment
                             attachment = zotero_client.get_pdf_attachment(item_key)
-                            if not attachment:
-                                log.warning("No PDF attachment for '%s', skipping", title)
-                                continue
-
-                            att_key = attachment["key"]
-                            att_md5 = attachment["data"].get("md5", "")
+                            att_key = attachment["key"] if attachment else ""
+                            att_md5 = attachment["data"].get("md5", "") if attachment else ""
 
                             # Upload to reMarkable (skip if already there)
                             if title in existing_on_rm:
                                 log.info("Already on reMarkable, skipping upload: %s", title)
                             else:
-                                try:
-                                    pdf_bytes = zotero_client.download_pdf(att_key)
-                                except requests.exceptions.HTTPError as e:
-                                    if e.response is not None and e.response.status_code == 404:
-                                        log.warning(
-                                            "PDF not yet synced to Zotero cloud for '%s', "
-                                            "will retry next run", title,
-                                        )
-                                        state.add_document(
-                                            zotero_item_key=item_key,
-                                            zotero_attachment_key=att_key,
-                                            zotero_attachment_md5=att_md5,
-                                            remarkable_doc_name=remarkable_client._sanitize_filename(title),
-                                            title=title,
-                                            authors=authors,
-                                            status="awaiting_pdf",
-                                            metadata=meta,
-                                        )
-                                        continue
-                                    raise
+                                pdf_bytes = None
+
+                                # Try Zotero cloud download
+                                if att_key:
+                                    try:
+                                        pdf_bytes = zotero_client.download_pdf(att_key)
+                                    except requests.exceptions.HTTPError as e:
+                                        if e.response is not None and e.response.status_code == 404:
+                                            log.info("PDF not synced to Zotero cloud for '%s'", title)
+                                        else:
+                                            raise
+
+                                # Fall back to direct URL download
+                                if pdf_bytes is None:
+                                    paper_url = meta.get("url", "")
+                                    if paper_url:
+                                        pdf_bytes = zotero_client.download_pdf_from_url(paper_url)
+                                        if pdf_bytes:
+                                            log.info("Downloaded PDF from URL for '%s'", title)
+
+                                if pdf_bytes is None:
+                                    log.warning(
+                                        "No PDF available for '%s', will retry next run", title,
+                                    )
+                                    state.add_document(
+                                        zotero_item_key=item_key,
+                                        zotero_attachment_key=att_key,
+                                        zotero_attachment_md5=att_md5,
+                                        remarkable_doc_name=remarkable_client._sanitize_filename(title),
+                                        title=title,
+                                        authors=authors,
+                                        status="awaiting_pdf",
+                                        metadata=meta,
+                                    )
+                                    continue
                                 log.info("Downloaded PDF (%d bytes)", len(pdf_bytes))
                                 remarkable_client.upload_pdf_bytes(
                                     pdf_bytes, config.RM_FOLDER_INBOX, title
@@ -754,6 +790,57 @@ def main():
                             log.exception("Failed to process paper '%s', skipping",
                                           paper.get("data", {}).get("title", paper.get("key")))
                             continue
+
+            # -- Metadata sync for existing tracked papers --
+            existing_changed = [
+                k for k in changed_keys if state.has_document(k)
+            ]
+            if existing_changed:
+                log.info(
+                    "Checking %d tracked paper(s) for metadata changes...",
+                    len(existing_changed),
+                )
+                items = zotero_client.get_items_by_keys(existing_changed)
+                items_by_key = {item["key"]: item for item in items}
+
+                for key in existing_changed:
+                    item = items_by_key.get(key)
+                    if not item:
+                        continue
+                    doc = state.get_document(key)
+                    if not doc:
+                        continue
+
+                    new_meta = zotero_client.extract_metadata(item)
+                    old_meta = doc.get("metadata", {})
+
+                    # Compare fields that come from Zotero
+                    changed = False
+                    for field in ("authors", "tags", "doi", "journal",
+                                  "publication_date", "url", "title"):
+                        if new_meta.get(field) != old_meta.get(field):
+                            changed = True
+                            break
+
+                    if not changed:
+                        continue
+
+                    log.info("Metadata changed for '%s'", doc["title"])
+
+                    # Preserve S2 enrichment fields
+                    for field in ("citation_count", "influential_citation_count",
+                                  "s2_url", "paper_type"):
+                        if field in old_meta:
+                            new_meta[field] = old_meta[field]
+
+                    doc["metadata"] = new_meta
+                    doc["authors"] = new_meta.get("authors", doc["authors"])
+
+                    # Update Obsidian note frontmatter for processed papers
+                    if doc.get("status") == "processed":
+                        obsidian.update_note_frontmatter(doc["title"], new_meta)
+
+                    state.save()
 
             state.zotero_library_version = current_version
             state.save()
@@ -896,6 +983,9 @@ def main():
                 )
 
                 # Update state
+                doc["highlight_count"] = sum(
+                    len(v) for v in (highlights or {}).values()
+                )
                 state.mark_processed(item_key, summary=one_liner)
                 state.save()
                 synced_count += 1

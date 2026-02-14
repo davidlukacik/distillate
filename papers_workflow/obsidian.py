@@ -7,7 +7,8 @@ and maintains a simple reading log.
 import logging
 from datetime import date
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from collections import OrderedDict
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
 from papers_workflow import config
@@ -318,6 +319,100 @@ tags:
     note_path.write_text(content)
     log.info("Created Obsidian note: %s", note_path)
     return note_path
+
+
+def _parse_frontmatter_blocks(fm_text: str) -> OrderedDict:
+    """Parse frontmatter text into ordered blocks keyed by field name.
+
+    Each value is the full text of that block (key line + any continuation lines
+    like list items). Preserves original formatting for untouched fields.
+    """
+    blocks: OrderedDict[str, str] = OrderedDict()
+    current_key: Optional[str] = None
+    current_lines: list = []
+
+    for line in fm_text.split("\n"):
+        # Top-level key: starts with a non-whitespace char and contains ":"
+        if line and not line[0].isspace() and ":" in line:
+            if current_key is not None:
+                blocks[current_key] = "\n".join(current_lines)
+            current_key = line.split(":", 1)[0]
+            current_lines = [line]
+        else:
+            current_lines.append(line)
+
+    if current_key is not None:
+        blocks[current_key] = "\n".join(current_lines)
+
+    return blocks
+
+
+def _rebuild_frontmatter(blocks: OrderedDict) -> str:
+    """Reassemble frontmatter from ordered blocks."""
+    return "\n".join(blocks.values())
+
+
+def update_note_frontmatter(title: str, metadata: Dict[str, Any]) -> bool:
+    """Update YAML frontmatter on an existing Obsidian note.
+
+    Replaces authors, tags, doi, journal, publication_date, url, and
+    citation_count. Preserves all other fields and the entire note body.
+    Returns True if updated, False if note not found.
+    """
+    rd = _read_dir()
+    if rd is None:
+        return False
+
+    sanitized = _sanitize_note_name(title)
+    note_path = rd / f"{sanitized}.md"
+    if not note_path.exists():
+        return False
+
+    content = note_path.read_text()
+    if not content.startswith("---\n"):
+        return False
+
+    try:
+        end_idx = content.index("\n---\n", 4)
+    except ValueError:
+        return False
+
+    fm_text = content[4:end_idx]
+    body = content[end_idx + 5:]  # after "\n---\n"
+
+    blocks = _parse_frontmatter_blocks(fm_text)
+
+    # Update authors
+    authors = metadata.get("authors", [])
+    if authors:
+        authors_yaml = "\n".join(f"  - {a}" for a in authors)
+        blocks["authors"] = f"authors:\n{authors_yaml}"
+
+    # Update tags (preserve paper + read prefix)
+    all_tags = ["paper", "read"] + (metadata.get("tags") or [])
+    tags_yaml = "\n".join(f"  - {t}" for t in all_tags)
+    blocks["tags"] = f"tags:\n{tags_yaml}"
+
+    # Simple key-value fields — update if new value is non-empty
+    for key, meta_key in [
+        ("doi", "doi"),
+        ("journal", "journal"),
+        ("publication_date", "publication_date"),
+        ("url", "url"),
+    ]:
+        val = metadata.get(meta_key, "")
+        if val:
+            blocks[key] = f'{key}: "{_escape_yaml(val)}"'
+
+    citation_count = metadata.get("citation_count", 0)
+    if citation_count:
+        blocks["citation_count"] = f"citation_count: {citation_count}"
+
+    new_fm = _rebuild_frontmatter(blocks)
+    new_content = f"---\n{new_fm}\n---\n{body}"
+    note_path.write_text(new_content)
+    log.info("Updated frontmatter: %s", note_path.name)
+    return True
 
 
 def append_to_reading_log(

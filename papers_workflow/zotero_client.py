@@ -149,6 +149,44 @@ def download_pdf(attachment_key: str) -> bytes:
     return resp.content
 
 
+def download_pdf_from_url(url: str) -> Optional[bytes]:
+    """Try to download a PDF directly from a paper URL (arxiv, biorxiv, etc.).
+
+    Converts abstract page URLs to direct PDF links where possible.
+    Returns PDF bytes or None if download fails.
+    """
+    import re as _re
+
+    pdf_url = None
+
+    # arxiv: http://arxiv.org/abs/XXXX -> https://arxiv.org/pdf/XXXX.pdf
+    m = _re.search(r"arxiv\.org/abs/([\d.]+)", url)
+    if m:
+        pdf_url = f"https://arxiv.org/pdf/{m.group(1)}.pdf"
+
+    # biorxiv/medrxiv: .../content/ID -> .../content/ID.full.pdf
+    if not pdf_url:
+        m = _re.search(r"(bio|med)rxiv\.org/content/([\d./v]+)", url)
+        if m:
+            base = url.rstrip("/")
+            if not base.endswith(".pdf"):
+                pdf_url = f"{base}.full.pdf"
+
+    if not pdf_url:
+        return None
+
+    try:
+        resp = requests.get(pdf_url, timeout=60, allow_redirects=True)
+        resp.raise_for_status()
+        if resp.headers.get("content-type", "").startswith("application/pdf") or len(resp.content) > 10000:
+            log.info("Downloaded PDF from %s (%d bytes)", pdf_url, len(resp.content))
+            return resp.content
+    except Exception:
+        log.debug("Failed to download PDF from %s", pdf_url, exc_info=True)
+
+    return None
+
+
 # -- Tagging --
 
 
