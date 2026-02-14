@@ -277,7 +277,7 @@ def _build_body(papers, state: State):
         "<ul style='padding-left: 20px;'>",
     ]
 
-    for p in papers:
+    for p in sorted(papers, key=lambda d: d.get("processed_at", ""), reverse=True):
         lines.append(_paper_html(p))
 
     lines.append("</ul>")
