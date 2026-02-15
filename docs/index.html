@@ -176,6 +176,7 @@
       .extras-grid { grid-template-columns: 1fr; }
       .container { padding: 48px 0 40px; }
       h1 { font-size: 2.4rem; }
+      .flow { font-size: 0.7rem; }
     }
 
     .extra {
@@ -319,16 +320,19 @@
       <span class="badge badge-green">MIT License</span>
     </div>
 
-    <div class="flow">Save paper in Zotero  ──&gt;  PDF on reMarkable
+    <div class="flow">                        $ distillate
+
+Save paper in Zotero  ──&gt;  PDF on reMarkable
                                │
                   Read &amp; highlight on tablet
                   Move to Read folder when done
                                │
                                V
-                  Distillate turns highlights into notes.</div>
+                  Highlights, notes, and archive.</div>
 
     <div class="install">
-      <code>pip install distillate &amp;&amp; distillate --init</code>
+      <code>$ pip install distillate
+$ distillate --init</code>
     </div>
 
     <div class="steps">
@@ -393,6 +397,11 @@
           <em class="extra-subtitle">Semantic Scholar</em>
           <span>See how influential each paper is with citation counts from Semantic Scholar</span>
         </div>
+        <div class="extra">
+          <strong>Scheduling</strong>
+          <em class="extra-subtitle">launchd &amp; cron</em>
+          <span>Set it and forget it. Runs automatically on macOS or Linux.</span>
+        </div>
       </div>
 
       <div class="integrations">
@@ -410,8 +419,7 @@
       <table>
         <tr><th>Component</th><th></th><th>Notes</th></tr>
         <tr><td>Zotero account</td><td><span class="badge badge-green">Free</span></td><td>Manages your paper library</td></tr>
-        <tr><td>reMarkable tablet</td><td><span class="badge badge-purple">Required</span></td><td>Where you read and highlight</td></tr>
-        <tr><td>rmapi</td><td><span class="badge badge-green">Free</span></td><td>Syncs files with reMarkable Cloud</td></tr>
+        <tr><td>reMarkable tablet</td><td><span class="badge badge-purple">Required</span></td><td>Where you read and highlight (uses <a href="https://github.com/ddvk/rmapi" style="color:var(--muted);">rmapi</a>)</td></tr>
         <tr><td>Obsidian or output folder</td><td><span class="badge badge-blue">Optional</span></td><td>Where notes are saved locally</td></tr>
         <tr><td>Anthropic API key</td><td><span class="badge badge-blue">Optional</span></td><td>For AI summaries and suggestions</td></tr>
         <tr><td>Resend account</td><td><span class="badge badge-blue">Optional</span></td><td>For weekly digest emails</td></tr>
@@ -425,7 +433,7 @@
       <a href="https://github.com/rlacombe/distillate#usage">Documentation</a>
     </div>
 
-    <p class="colophon">Built with love and coffee by <a href="https://github.com/rlacombe" style="color:var(--muted);text-decoration:underline;">Romain Lacombe</a>.</p>
+    <p class="colophon">Built with love and coffee by <a href="https://github.com/rlacombe" style="color:var(--muted);text-decoration:underline;">Romain Lacombe</a>. Powered by <a href="https://github.com/ricklupton/rmscene" style="color:var(--muted);text-decoration:underline;">rmscene</a>, <a href="https://pymupdf.readthedocs.io/" style="color:var(--muted);text-decoration:underline;">PyMuPDF</a>, and <a href="https://claude.ai/claude-code" style="color:var(--muted);text-decoration:underline;">Claude Code</a>.</p>
   </div>
 </body>
 </html>
