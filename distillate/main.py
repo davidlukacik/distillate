@@ -574,33 +574,51 @@ def _init_wizard() -> None:
 
     print()
     print("  Welcome to Distillate")
-    print("  " + "=" * 40)
+    print("  " + "=" * 48)
+    print()
+    print("  Distillate automates your research paper workflow:")
+    print()
+    print("    1. You save a paper to Zotero (browser connector)")
+    print("    2. Distillate uploads the PDF to your reMarkable")
+    print("    3. You read and highlight on the reMarkable")
+    print("    4. When done, move the document to the Read folder")
+    print("    5. Distillate extracts your highlights, creates an")
+    print("       annotated PDF, writes a note, and archives it")
+    print()
+    print("  Let's get you set up. This takes about 2 minutes.")
     print()
     print(f"  Config will be saved to: {ENV_PATH}")
     print()
 
-    # 1. Zotero (required)
-    print("  --- Zotero (required) ---")
+    # -- Step 1: Zotero --
+
+    print("  " + "-" * 48)
+    print("  Step 1 of 5: Zotero")
+    print("  " + "-" * 48)
     print()
-    print("  Create an API key at: https://www.zotero.org/settings/keys/new")
-    print("  (Enable library access + write access)")
+    print("  Distillate watches your Zotero library for new papers.")
+    print("  When you save a paper using the browser connector,")
+    print("  Distillate picks it up and sends the PDF to your")
+    print("  reMarkable.")
     print()
-    api_key = input("  Zotero API key: ").strip()
+    print("  You need a Zotero API key with read/write library access.")
+    print("  Create one here: https://www.zotero.org/settings/keys/new")
+    print()
+    api_key = input("  API key: ").strip()
     if not api_key:
-        print("\n  Error: Zotero API key is required.")
+        print("\n  Error: A Zotero API key is required to continue.")
         return
 
     print()
-    print("  Find your user ID at: https://www.zotero.org/settings/keys")
+    print("  Your user ID is the number shown on the same page.")
     print()
-    user_id = input("  Zotero user ID: ").strip()
+    user_id = input("  User ID: ").strip()
     if not user_id:
-        print("\n  Error: Zotero user ID is required.")
+        print("\n  Error: A Zotero user ID is required to continue.")
         return
 
-    # Verify credentials
     print()
-    print("  Verifying Zotero credentials...")
+    print("  Verifying...")
     save_to_env("ZOTERO_API_KEY", api_key)
     save_to_env("ZOTERO_USER_ID", user_id)
     try:
@@ -611,68 +629,147 @@ def _init_wizard() -> None:
             timeout=10,
         )
         resp.raise_for_status()
-        print("  Zotero: connected successfully.")
+        print("  Connected! Found your Zotero library.")
     except Exception as e:
-        print(f"  Warning: Could not verify Zotero credentials ({e})")
-        print("  Credentials saved — you can fix them later in .env")
+        print(f"  Warning: could not verify credentials ({e})")
+        print("  Saved anyway — you can fix them later in .env")
+    print()
 
-    # 2. reMarkable (required)
-    print()
-    print("  --- reMarkable (required) ---")
-    print()
-    register = input("  Register your reMarkable device now? [Y/n] ").strip().lower()
-    if register != "n":
-        from distillate.remarkable_auth import register_interactive
-        register_interactive()
-    else:
-        print("  Skipped. Run 'distillate --register' later.")
+    # -- Step 2: reMarkable --
 
-    # 3. Output destination
+    print("  " + "-" * 48)
+    print("  Step 2 of 5: reMarkable")
+    print("  " + "-" * 48)
     print()
-    print("  --- Output (where notes + annotated PDFs go) ---")
+    print("  Distillate uses rmapi to sync PDFs with your reMarkable")
+    print("  via the reMarkable Cloud.")
     print()
-    print("  [1] Obsidian vault (rich integration: wiki-links, Dataview, stats)")
-    print("  [2] Plain folder (just markdown notes + PDFs)")
-    print("  [3] Skip (no local output, Zotero + reMarkable only)")
-    print()
-    choice = input("  Choice [1/2/3]: ").strip()
 
-    if choice == "1":
-        vault_path = input("  Obsidian vault path: ").strip()
-        if vault_path:
-            vault_path = str(Path(vault_path).expanduser().resolve())
-            save_to_env("OBSIDIAN_VAULT_PATH", vault_path)
-            print(f"  Notes will go to: {vault_path}/Distillate/")
-    elif choice == "2":
-        output_path = input("  Output folder path: ").strip()
-        if output_path:
-            output_path = str(Path(output_path).expanduser().resolve())
-            save_to_env("OUTPUT_PATH", output_path)
-            Path(output_path).mkdir(parents=True, exist_ok=True)
-            print(f"  Notes will go to: {output_path}")
+    # Check if rmapi is installed
+    import shutil
+    if not shutil.which("rmapi"):
+        print("  rmapi is not installed. You need it before continuing.")
+        print()
+        import platform
+        if platform.system() == "Darwin":
+            print("  Install with Homebrew:")
+            print("    brew install rmapi")
+        else:
+            print("  Download the latest binary:")
+            print("    https://github.com/ddvk/rmapi/releases")
+        print()
+        input("  Press Enter once rmapi is installed...")
+        print()
+        if shutil.which("rmapi"):
+            print("  rmapi found!")
+        else:
+            print("  rmapi still not found — you can install it later.")
+            print("  Run 'distillate --register' when ready.")
+            print()
+
+    if shutil.which("rmapi"):
+        print("  You need to authorize this device once.")
+        print()
+        register = input("  Register your reMarkable now? [Y/n] ").strip().lower()
+        if register != "n":
+            from distillate.remarkable_auth import register_interactive
+            register_interactive()
+        else:
+            print("  Skipped. Run 'distillate --register' later.")
+    print()
+
+    # -- Step 3: Notes & PDFs --
+
+    print("  " + "-" * 48)
+    print("  Step 3 of 5: Notes & PDFs")
+    print("  " + "-" * 48)
+    print()
+    print("  When you finish reading a paper, Distillate creates:")
+    print("    - An annotated PDF with your highlights overlaid")
+    print("      on the original")
+    print("    - A markdown note with metadata and highlights")
+    print("      grouped by page")
+    print()
+    print("  Choose a folder where these files should go.")
+    print()
+    folder = input("  Output folder path (Enter to skip): ").strip()
+
+    if folder:
+        folder = str(Path(folder).expanduser().resolve())
+        print()
+        print("  If this is an Obsidian vault, Distillate can add:")
+        print("    - Wiki-links between your paper notes")
+        print("    - A Dataview-powered searchable paper database")
+        print("    - A reading statistics dashboard")
+        print("    - 'Open in Obsidian' deep links from Zotero")
+        print()
+        is_obsidian = input("  Is this an Obsidian vault? [y/N] ").strip().lower()
+        if is_obsidian == "y":
+            save_to_env("OBSIDIAN_VAULT_PATH", folder)
+            print("  Obsidian mode enabled. Notes will go to:")
+            print(f"    {folder}/Distillate/")
+        else:
+            save_to_env("OUTPUT_PATH", folder)
+            Path(folder).mkdir(parents=True, exist_ok=True)
+            print(f"  Notes and PDFs will go to: {folder}")
     else:
         print("  Skipped. Notes will only be stored in Zotero.")
+    print()
 
-    # 4. AI summaries (optional)
+    # -- Step 4: Zotero storage --
+
+    print("  " + "-" * 48)
+    print("  Step 4 of 5: Zotero Storage")
+    print("  " + "-" * 48)
     print()
-    print("  --- AI Summaries (optional) ---")
+    print("  Zotero offers 300 MB of free storage for PDF")
+    print("  attachments. Distillate can delete the PDF from Zotero")
+    print("  after uploading it to your reMarkable, freeing up")
+    print("  storage. The file is still on your tablet and saved")
+    print("  locally with your notes.")
     print()
-    print("  Distillate can generate one-liner summaries, paragraph overviews,")
-    print("  and key learnings for each paper using Claude.")
+    keep = input("  Keep PDFs in Zotero after syncing? [Y/n] ").strip().lower()
+    if keep == "n":
+        save_to_env("KEEP_ZOTERO_PDF", "false")
+        print("  PDFs will be removed from Zotero after upload")
+        print("  (saved on reMarkable + locally).")
+    else:
+        save_to_env("KEEP_ZOTERO_PDF", "true")
+        print("  PDFs will stay in Zotero (uses storage).")
+    print()
+
+    # -- Step 5: Optional features --
+
+    print("  " + "-" * 48)
+    print("  Step 5 of 5: Optional Features")
+    print("  " + "-" * 48)
+    print()
+
+    # AI Summaries
+    print("  AI Summaries")
+    print()
+    print("  With an Anthropic API key, each paper you read gets:")
+    print("    - A one-liner summary (shown in your Reading Log)")
+    print("    - A paragraph overview of methods and findings")
+    print("    - 4-6 key learnings distilled from your highlights")
+    print()
+    print("  Without a key, papers use their abstract as fallback.")
     print()
     anthropic_key = input("  Anthropic API key (Enter to skip): ").strip()
     if anthropic_key:
         save_to_env("ANTHROPIC_API_KEY", anthropic_key)
         print("  AI summaries enabled.")
     else:
-        print("  Skipped. Papers will use abstracts as fallback.")
+        print("  Skipped.")
+    print()
 
-    # 5. Email digest (optional)
+    # Email Digest
+    print("  Email Digest")
     print()
-    print("  --- Email Digest (optional) ---")
+    print("  Get a weekly email summarizing what you've read, plus")
+    print("  daily suggestions for what to read next from your queue.")
     print()
-    print("  Get daily paper suggestions and weekly reading digests by email.")
-    print("  Requires a Resend account: https://resend.com")
+    print("  Requires a free Resend account: https://resend.com")
     print()
     resend_key = input("  Resend API key (Enter to skip): ").strip()
     if resend_key:
@@ -684,23 +781,25 @@ def _init_wizard() -> None:
     else:
         print("  Skipped.")
 
-    # Done
+    # -- Done --
+
     print()
-    print("  " + "=" * 40)
+    print("  " + "=" * 48)
     print("  Setup complete!")
+    print("  " + "=" * 48)
     print()
     print(f"  Config saved to: {ENV_PATH}")
     print()
     print("  Next steps:")
     print("    1. Save a paper to Zotero using the browser connector")
     print("    2. Run: distillate")
-    print("    3. Read & highlight on your reMarkable")
+    print("    3. Read and highlight on your reMarkable")
     print("    4. Move the document to Distillate/Read when done")
-    print("    5. Run distillate again to sync everything back")
+    print("    5. Run distillate again — your note will be waiting")
     print()
-    print("  For automatic syncing, run:")
-    print("    distillate --install-schedule    (macOS)")
-    print("    crontab -e                       (Linux)")
+    print("  For automatic syncing (runs every 15 minutes):")
+    print("    macOS:  ./scripts/install-launchd.sh")
+    print("    Linux:  crontab -e")
     print()
 
 
@@ -848,9 +947,9 @@ def main():
                         new_att = zotero_client.create_linked_attachment(
                             item_key, saved.name, str(saved),
                         )
-                        if new_att and att_key:
+                        if new_att and att_key and not config.KEEP_ZOTERO_PDF:
                             zotero_client.delete_attachment(att_key)
-                    elif att_key:
+                    elif att_key and not config.KEEP_ZOTERO_PDF:
                         zotero_client.delete_attachment(att_key)
                     zotero_client.add_tag(item_key, config.ZOTERO_TAG_INBOX)
                     state.set_status(item_key, "on_remarkable")
@@ -967,16 +1066,16 @@ def main():
                                 )
                                 # Save original to Obsidian Inbox folder
                                 saved = obsidian.save_inbox_pdf(title, pdf_bytes)
-                                # Create linked attachment, then delete imported
+                                # Create linked attachment, optionally delete imported
                                 if saved:
                                     new_att = zotero_client.create_linked_attachment(
                                         item_key, saved.name, str(saved),
                                     )
-                                    if new_att:
+                                    if new_att and not config.KEEP_ZOTERO_PDF:
                                         zotero_client.delete_attachment(att_key)
-                                    else:
+                                    elif not new_att:
                                         log.warning("Could not create linked attachment for '%s', keeping imported PDF", title)
-                                else:
+                                elif not config.KEEP_ZOTERO_PDF:
                                     zotero_client.delete_attachment(att_key)
 
                             # Semantic Scholar enrichment
