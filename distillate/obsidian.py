@@ -331,7 +331,7 @@ def create_paper_note(
 
     # Key ideas as bare bullet list (no header)
     if key_learnings:
-        learnings_md = "\n".join(f"- {l}" for l in key_learnings) + "\n\n"
+        learnings_md = "\n".join(f"- {item}" for item in key_learnings) + "\n\n"
     else:
         learnings_md = ""
 
@@ -516,8 +516,8 @@ def append_to_reading_log(
     entry_lines.append(bullet)
 
     # Sort entries by date, newest first
-    entry_lines = [l for l in entry_lines if l.strip()]
-    entry_lines.sort(key=lambda l: l[2:12] if l.startswith("- ") else "", reverse=True)
+    entry_lines = [line for line in entry_lines if line.strip()]
+    entry_lines.sort(key=lambda line: line[2:12] if line.startswith("- ") else "", reverse=True)
 
     header = "\n".join(header_lines).rstrip("\n") + "\n\n"
     updated = header + "\n".join(entry_lines) + "\n"

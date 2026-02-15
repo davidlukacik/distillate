@@ -13,9 +13,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-log = logging.getLogger(__name__)
-
 from distillate.config import CONFIG_DIR
+
+log = logging.getLogger(__name__)
 
 # State file: prefer CWD (for dev installs), then config dir
 STATE_PATH = CONFIG_DIR / "state.json"

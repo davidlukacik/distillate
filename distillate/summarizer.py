@@ -29,7 +29,7 @@ def summarize_read_paper(
 
     context = f"Abstract: {abstract}"
     if key_learnings:
-        context += "\n\nKey takeaways:\n" + "\n".join(f"- {l}" for l in key_learnings)
+        context += "\n\nKey takeaways:\n" + "\n".join(f"- {item}" for item in key_learnings)
 
     prompt = (
         f"You are summarizing a research paper for a personal reading log.\n\n"
@@ -170,13 +170,13 @@ def suggest_papers(
         f"should read next.\n\n"
         f"Papers I've read recently:\n{reads_section}\n\n"
         f"My reading queue:\n" + "\n".join(queue_lines) + "\n\n"
-        f"Pick exactly 3 papers by number. For each, give one sentence "
-        f"explaining why I should read it now. Balance:\n"
-        f"- Relevance to my recent interests\n"
-        f"- Diversity (don't pick 3 on the same topic)\n"
-        f"- Queue age (papers sitting too long deserve attention)\n\n"
-        f"Format:\n[number]. [title] — [reason]\n[number]. [title] — [reason]\n"
-        f"[number]. [title] — [reason]"
+        "Pick exactly 3 papers by number. For each, give one sentence "
+        "explaining why I should read it now. Balance:\n"
+        "- Relevance to my recent interests\n"
+        "- Diversity (don't pick 3 on the same topic)\n"
+        "- Queue age (papers sitting too long deserve attention)\n\n"
+        "Format:\n[number]. [title] — [reason]\n[number]. [title] — [reason]\n"
+        "[number]. [title] — [reason]"
     )
 
     return _call_claude(prompt, max_tokens=300, model=config.CLAUDE_SMART_MODEL)

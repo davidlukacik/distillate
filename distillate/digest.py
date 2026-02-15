@@ -261,8 +261,6 @@ def _paper_html(p):
     title = p.get("title", "Untitled")
     summary = p.get("summary", "")
     url = _paper_url(p)
-    meta = p.get("metadata", {})
-    tags = meta.get("tags", [])
     highlight_count = p.get("highlight_count", 0)
     engagement = p.get("engagement", 0)
     highlight_word_count = p.get("highlight_word_count", 0)
