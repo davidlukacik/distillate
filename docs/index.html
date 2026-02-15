@@ -33,14 +33,25 @@
     }
 
     h1 {
-      font-size: 2rem;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 3.2rem;
       font-weight: 700;
-      letter-spacing: -0.03em;
-      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+      line-height: 1.1;
     }
 
     .tagline {
-      font-size: 1.15rem;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.25rem;
+      font-style: italic;
+      color: var(--fg);
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .subtitle {
+      font-size: 1rem;
       color: var(--muted);
       margin-bottom: 48px;
     }
@@ -50,13 +61,35 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 24px 28px;
-      margin-bottom: 40px;
+      margin-bottom: 32px;
       font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
       font-size: 0.85rem;
       line-height: 1.8;
       color: var(--fg);
       white-space: pre;
       overflow-x: auto;
+    }
+
+    .integrations {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 20px;
+      margin-bottom: 48px;
+      padding: 0;
+    }
+
+    .integrations a {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      transition: color 0.15s;
+    }
+
+    .integrations a:hover {
+      color: var(--fg);
     }
 
     .install {
@@ -132,7 +165,7 @@
     @media (max-width: 480px) {
       .extras-grid { grid-template-columns: 1fr; }
       .container { padding: 48px 0 40px; }
-      h1 { font-size: 1.6rem; }
+      h1 { font-size: 2.4rem; }
     }
 
     .extra {
@@ -148,7 +181,7 @@
       font-size: 0.9rem;
     }
 
-    .extra .subtitle {
+    .extra .extra-subtitle {
       display: block;
       font-size: 0.75rem;
       color: #7c3aed;
@@ -254,13 +287,14 @@
   </style>
 </head>
 <body>
-  <div class="banner">v0.1.1 Research Preview &mdash; <a href="https://github.com/rlacombe/distillate">try it out</a> and share feedback</div>
+  <div class="banner">v0.1.2 Research Preview &mdash; <a href="https://github.com/rlacombe/distillate">try it out</a> and share feedback</div>
   <div class="container">
     <h1>Distillate</h1>
-    <p class="tagline">A reading workflow for researchers who use Zotero and reMarkable.</p>
+    <p class="tagline">Extract the essence of every paper you read.</p>
+    <p class="subtitle">Save to Zotero. Read on reMarkable. Distillate does the rest.</p>
 
     <div class="badges">
-      <span class="badge badge-purple">PyPI v0.1.1</span>
+      <span class="badge badge-purple">PyPI v0.1.2</span>
       <span class="badge badge-blue">Python 3.10+</span>
       <span class="badge badge-green">MIT License</span>
     </div>
@@ -279,6 +313,15 @@
                   ├── AI paper summaries
                   ├── Daily paper suggestions
                   └── Weekly digest emails</div>
+
+    <div class="integrations">
+      <a href="https://www.zotero.org/">Zotero</a>
+      <a href="https://remarkable.com/">reMarkable</a>
+      <a href="https://obsidian.md/">Obsidian</a>
+      <a href="https://www.semanticscholar.org/">Semantic Scholar</a>
+      <a href="https://www.anthropic.com/">Anthropic</a>
+      <a href="https://resend.com/">Resend</a>
+    </div>
 
     <div class="install">
       <code>pip install distillate &amp;&amp; distillate --init</code>
@@ -323,23 +366,28 @@
       <div class="extras-grid">
         <div class="extra">
           <strong>AI summaries</strong>
-          <em class="subtitle">Anthropic API</em>
+          <em class="extra-subtitle">Anthropic API</em>
           <span>One-liner, key learnings, and a paragraph summary for each paper you read</span>
         </div>
         <div class="extra">
           <strong>Paper suggestions</strong>
-          <em class="subtitle">Anthropic API</em>
+          <em class="extra-subtitle">Anthropic API</em>
           <span>Pick what to read next from your queue, based on your reading history</span>
         </div>
         <div class="extra">
           <strong>Weekly digest</strong>
-          <em class="subtitle">Free Resend account</em>
+          <em class="extra-subtitle">Free Resend account</em>
           <span>A summary of what you read this week, with stats and queue health</span>
         </div>
         <div class="extra">
           <strong>Obsidian integration</strong>
-          <em class="subtitle">Obsidian vault</em>
+          <em class="extra-subtitle">Obsidian vault</em>
           <span>Wiki-links between papers, searchable database, reading stats, deep links from Zotero</span>
+        </div>
+        <div class="extra">
+          <strong>Citation data</strong>
+          <em class="extra-subtitle">Semantic Scholar</em>
+          <span>See how influential each paper is with citation counts from the Semantic Scholar API</span>
         </div>
       </div>
     </div>

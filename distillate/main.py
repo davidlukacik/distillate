@@ -516,16 +516,48 @@ def _status() -> None:
     print(f"  {_stats_line(week_papers, 'This week')}")
     print(f"  {_stats_line(month_papers, 'This month')}")
 
-    # Awaiting PDF
+    # Awaiting PDF (show titles)
     awaiting = state.documents_with_status("awaiting_pdf")
     if awaiting:
         print()
         print(f"  Awaiting PDF: {len(awaiting)} paper{'s' if len(awaiting) != 1 else ''}")
+        for doc in awaiting:
+            print(f"    - {doc['title']}")
+
+    # Pending promotions
+    pending_promo = state.pending_promotions
+    if pending_promo:
+        titles = [state.get_document(k)["title"] for k in pending_promo if state.get_document(k)]
+        if titles:
+            print()
+            print(f"  Pending promotions: {len(titles)}")
+            for t in titles:
+                print(f"    - {t}")
 
     # Total processed
     processed = state.documents_with_status("processed")
     print()
     print(f"  Total: {len(processed)} papers read, {len(queue)} in queue")
+
+    # Config health
+    import shutil
+    issues = []
+    if not config.OBSIDIAN_VAULT_PATH and not config.OUTPUT_PATH:
+        issues.append("No output configured (set OBSIDIAN_VAULT_PATH or OUTPUT_PATH)")
+    elif config.OBSIDIAN_VAULT_PATH and not Path(config.OBSIDIAN_VAULT_PATH).is_dir():
+        issues.append(f"Vault path missing: {config.OBSIDIAN_VAULT_PATH}")
+    if not config.ANTHROPIC_API_KEY:
+        issues.append("No ANTHROPIC_API_KEY (AI summaries disabled)")
+    if not config.RESEND_API_KEY:
+        issues.append("No RESEND_API_KEY (email digest disabled)")
+    if not shutil.which("rmapi"):
+        issues.append("rmapi not found (reMarkable sync will fail)")
+
+    if issues:
+        print()
+        print("  Config:")
+        for issue in issues:
+            print(f"    - {issue}")
     print()
 
 
@@ -568,11 +600,14 @@ def _print_digest() -> None:
             except (ValueError, TypeError):
                 pass
 
+        citation_count = p.get("metadata", {}).get("citation_count", 0)
         stats = []
         if engagement:
             stats.append(f"{engagement}% engaged")
         if highlight_count:
             stats.append(f"{highlight_count} highlights")
+        if citation_count:
+            stats.append(f"{citation_count:,} citations")
         stats_str = f" ({', '.join(stats)})" if stats else ""
 
         print()
@@ -766,6 +801,7 @@ def _suggest() -> None:
                     "tags": meta.get("tags", []),
                     "paper_type": meta.get("paper_type", ""),
                     "uploaded_at": doc.get("uploaded_at", ""),
+                    "citation_count": meta.get("citation_count", 0),
                 })
 
             since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
@@ -778,6 +814,7 @@ def _suggest() -> None:
                     "tags": meta.get("tags", []),
                     "summary": doc.get("summary", ""),
                     "engagement": doc.get("engagement", 0),
+                    "citation_count": meta.get("citation_count", 0),
                 })
 
             result = summarizer.suggest_papers(unread_enriched, recent_enriched)
@@ -812,6 +849,12 @@ def _suggest() -> None:
 
     except remarkable_client.RmapiAuthError as e:
         print(f"\n  {e}\n")
+        return
+    except requests.exceptions.ConnectionError:
+        print(
+            "\n  Could not connect to the internet."
+            "\n  Check your network connection and try again.\n"
+        )
         return
     except Exception:
         log.exception("Unexpected error in suggest")
@@ -1174,7 +1217,7 @@ def _init_wizard() -> None:
     print()
 
 
-_VERSION = "0.1.1"
+_VERSION = "0.1.2"
 
 _HELP = """\
 Usage: distillate <command>
@@ -1392,6 +1435,19 @@ def main():
                             authors = meta["authors"]
 
                             log.info("Processing: %s", title)
+
+                            # Duplicate check by DOI then title
+                            doi = meta.get("doi", "")
+                            existing = state.find_by_doi(doi) if doi else None
+                            if existing is None:
+                                existing = state.find_by_title(title)
+                            if existing is not None:
+                                log.info(
+                                    "Skipping duplicate: '%s' (already tracked as %s)",
+                                    title, existing["zotero_item_key"],
+                                )
+                                zotero_client.add_tag(item_key, config.ZOTERO_TAG_INBOX)
+                                continue
 
                             # Find PDF attachment
                             attachment = zotero_client.get_pdf_attachment(item_key)
@@ -1743,6 +1799,29 @@ def main():
     except remarkable_client.RmapiAuthError as e:
         print(f"\n  {e}\n")
         return
+    except requests.exceptions.ConnectionError:
+        print(
+            "\n  Could not connect to the internet."
+            "\n  Check your network connection and try again.\n"
+        )
+        return
+    except requests.exceptions.HTTPError as e:
+        resp = e.response
+        if resp is not None and resp.status_code == 403:
+            print(
+                "\n  Zotero returned 403 Forbidden."
+                "\n  Your API key may be invalid or expired."
+                "\n  Check ZOTERO_API_KEY in your config.\n"
+            )
+            return
+        if resp is not None and resp.status_code == 429:
+            print(
+                "\n  Zotero rate limit reached."
+                "\n  Wait a few minutes and try again.\n"
+            )
+            return
+        log.exception("HTTP error")
+        raise
     except Exception:
         log.exception("Unexpected error")
         raise
