@@ -1679,6 +1679,7 @@ def main():
                             new_meta[field] = old_meta[field]
 
                     doc["metadata"] = new_meta
+                    doc["title"] = new_meta.get("title", doc["title"])
                     doc["authors"] = new_meta.get("authors", doc["authors"])
 
                     # Update Obsidian note frontmatter for processed papers
