@@ -187,7 +187,7 @@
     }
 
     .links a {
-      color: var(--accent);
+      color: #7c3aed;
       text-decoration: none;
       font-weight: 500;
       font-size: 0.95rem;
@@ -195,6 +195,37 @@
 
     .links a:hover {
       text-decoration: underline;
+    }
+
+    .badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 48px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-purple {
+      background: #ede9fe;
+      color: #6d28d9;
+    }
+
+    .badge-green {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .badge-blue {
+      background: #dbeafe;
+      color: #1d4ed8;
     }
 
     .banner {
@@ -219,6 +250,12 @@
   <div class="container">
     <h1>Distillate</h1>
     <p class="tagline">A reading workflow for researchers who use Zotero and reMarkable.</p>
+
+    <div class="badges">
+      <span class="badge badge-purple">PyPI v0.1.1</span>
+      <span class="badge badge-blue">Python 3.10+</span>
+      <span class="badge badge-green">MIT License</span>
+    </div>
 
     <div class="flow">Save paper in Zotero  ──&gt;  PDF on reMarkable
                                │

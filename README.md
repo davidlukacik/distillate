@@ -23,7 +23,7 @@ Save paper in Zotero  ──>  PDF uploaded to reMarkable
 
 ```bash
 pip install distillate
-distillate init
+distillate --init
 ```
 
 The setup wizard walks you through connecting Zotero, reMarkable, and choosing where your notes go.
