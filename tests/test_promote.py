@@ -90,6 +90,19 @@ class TestStatDocument:
         assert "current_page" not in info
 
 
+class TestRmapiTimeout:
+    """Test that rmapi timeout is caught and wrapped in RuntimeError."""
+
+    def test_timeout_raises_runtime_error(self):
+        import pytest
+        from distillate.remarkable_client import _run
+
+        with patch("shutil.which", return_value="/usr/bin/rmapi"), \
+             patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="rmapi", timeout=120)):
+            with pytest.raises(RuntimeError, match="timed out"):
+                _run(["ls", "/"])
+
+
 # ---------------------------------------------------------------------------
 # _suggest — smart demotion logic (formerly _promote)
 # ---------------------------------------------------------------------------

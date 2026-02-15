@@ -33,9 +33,15 @@ def _run(args: List[str], check: bool = True) -> subprocess.CompletedProcess:
         )
     cmd = [rmapi] + args
     log.debug("Running: %s", " ".join(cmd))
-    result = subprocess.run(
-        cmd, capture_output=True, text=True, timeout=120,
-    )
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            f"rmapi {' '.join(args)} timed out after 120s. "
+            "Check your network connection."
+        )
     if result.returncode != 0:
         combined = (result.stderr + result.stdout).lower()
         if any(p in combined for p in _AUTH_ERROR_PATTERNS):
