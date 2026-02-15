@@ -14,6 +14,7 @@ Save paper in Zotero  ──>  PDF uploaded to reMarkable
                        Read & highlight on reMarkable
                        Move to Read folder when done
                                   │
+                                  V
                        Distillate picks it up:
                        ├── Annotated PDF with highlights
                        ├── Markdown note + AI summary
