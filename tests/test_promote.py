@@ -129,7 +129,10 @@ class TestPromoteSmartDemotion:
              patch("distillate.summarizer.suggest_papers", summarizer_mock.suggest_papers), \
              patch("distillate.state.State", return_value=state), \
              patch("distillate.state.acquire_lock", return_value=True), \
-             patch("distillate.state.release_lock"):
+             patch("distillate.state.release_lock"), \
+             patch("distillate.config.RM_FOLDER_PAPERS", "Distillate"), \
+             patch("distillate.config.RM_FOLDER_INBOX", "Distillate/Inbox"), \
+             patch("distillate.config.ANTHROPIC_API_KEY", ""):
             from distillate.main import _suggest
             _suggest()
 
@@ -165,7 +168,7 @@ class TestPromoteSmartDemotion:
         self._run_suggest(state, rm, summarizer)
 
         rm.move_document.assert_called_once_with(
-            "Paper_A", "Papers", "Papers/Inbox"
+            "Paper_A", "Distillate", "Distillate/Inbox"
         )
 
     def test_skips_demotion_when_stat_fails(self):
@@ -248,7 +251,7 @@ class TestPromotedAtTimestamp:
         # First call: papers root (demotion phase — no old promoted, so just
         # returns empty for the check). Second call: inbox listing.
         def list_folder_side_effect(folder):
-            if folder == "Papers/Inbox":
+            if folder == "Distillate/Inbox":
                 return ["Paper_A"]
             return []
         rm.list_folder.side_effect = list_folder_side_effect
@@ -262,7 +265,10 @@ class TestPromotedAtTimestamp:
              patch("distillate.summarizer.suggest_papers", summarizer.suggest_papers), \
              patch("distillate.state.State", return_value=state), \
              patch("distillate.state.acquire_lock", return_value=True), \
-             patch("distillate.state.release_lock"):
+             patch("distillate.state.release_lock"), \
+             patch("distillate.config.RM_FOLDER_PAPERS", "Distillate"), \
+             patch("distillate.config.RM_FOLDER_INBOX", "Distillate/Inbox"), \
+             patch("distillate.config.ANTHROPIC_API_KEY", ""):
             from distillate.main import _suggest
             _suggest()
 
