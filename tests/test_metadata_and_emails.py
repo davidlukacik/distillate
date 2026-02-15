@@ -1,11 +1,9 @@
 """Tests for metadata sync, frontmatter parsing, and email enrichment helpers."""
 
 import textwrap
-from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +90,6 @@ class TestUpdateNoteFrontmatter:
 
     def test_updates_tags_and_authors(self, tmp_path):
         from distillate.obsidian import (
-            _parse_frontmatter_blocks,
             update_note_frontmatter,
         )
 

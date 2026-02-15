@@ -1,9 +1,8 @@
 """Tests for auto-promote: stat_document, smart demotion, and Sonnet suggestions."""
 
 import subprocess
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +90,7 @@ class TestStatDocument:
 
 
 # ---------------------------------------------------------------------------
-# _promote — smart demotion logic
+# _suggest — smart demotion logic (formerly _promote)
 # ---------------------------------------------------------------------------
 
 
@@ -120,10 +119,10 @@ def _make_doc(key, title, rm_name="doc_rm_name", status="on_remarkable"):
 
 
 class TestPromoteSmartDemotion:
-    """Test the demotion logic in _promote()."""
+    """Test the demotion logic in _suggest()."""
 
-    def _run_promote(self, state, rm_mock, summarizer_mock):
-        """Run _promote() with mocked dependencies."""
+    def _run_suggest(self, state, rm_mock, summarizer_mock):
+        """Run _suggest() with mocked dependencies."""
         with patch("distillate.remarkable_client.list_folder", rm_mock.list_folder), \
              patch("distillate.remarkable_client.stat_document", rm_mock.stat_document), \
              patch("distillate.remarkable_client.move_document", rm_mock.move_document), \
@@ -131,8 +130,8 @@ class TestPromoteSmartDemotion:
              patch("distillate.state.State", return_value=state), \
              patch("distillate.state.acquire_lock", return_value=True), \
              patch("distillate.state.release_lock"):
-            from distillate.main import _promote
-            _promote()
+            from distillate.main import _suggest
+            _suggest()
 
     def test_skips_demotion_when_user_started_reading(self):
         """Papers with CurrentPage > 0 should NOT be demoted."""
@@ -146,7 +145,7 @@ class TestPromoteSmartDemotion:
         summarizer = MagicMock()
         summarizer.suggest_papers.return_value = None
 
-        self._run_promote(state, rm, summarizer)
+        self._run_suggest(state, rm, summarizer)
 
         rm.move_document.assert_not_called()
         assert "KEY_A" in state.promoted_papers
@@ -163,7 +162,7 @@ class TestPromoteSmartDemotion:
         summarizer = MagicMock()
         summarizer.suggest_papers.return_value = None
 
-        self._run_promote(state, rm, summarizer)
+        self._run_suggest(state, rm, summarizer)
 
         rm.move_document.assert_called_once_with(
             "Paper_A", "Papers", "Papers/Inbox"
@@ -181,7 +180,7 @@ class TestPromoteSmartDemotion:
         summarizer = MagicMock()
         summarizer.suggest_papers.return_value = None
 
-        self._run_promote(state, rm, summarizer)
+        self._run_suggest(state, rm, summarizer)
 
         rm.move_document.assert_not_called()
         assert "KEY_A" in state.promoted_papers
@@ -198,7 +197,7 @@ class TestPromoteSmartDemotion:
         summarizer = MagicMock()
         summarizer.suggest_papers.return_value = None
 
-        self._run_promote(state, rm, summarizer)
+        self._run_suggest(state, rm, summarizer)
 
         rm.move_document.assert_not_called()
         rm.stat_document.assert_not_called()
@@ -264,7 +263,7 @@ class TestPromotedAtTimestamp:
              patch("distillate.state.State", return_value=state), \
              patch("distillate.state.acquire_lock", return_value=True), \
              patch("distillate.state.release_lock"):
-            from distillate.main import _promote
-            _promote()
+            from distillate.main import _suggest
+            _suggest()
 
         assert "promoted_at" in doc_a

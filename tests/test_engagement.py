@@ -6,7 +6,6 @@ import subprocess
 import zipfile
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 
 # ---------------------------------------------------------------------------

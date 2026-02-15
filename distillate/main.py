@@ -430,11 +430,74 @@ def _sync_state() -> None:
     log.info("Synced state.json to gist %s", gist_id)
 
 
-def _promote() -> None:
-    """Promote papers to the Papers root on reMarkable.
+def _print_digest() -> None:
+    """Print a reading digest to the terminal."""
+    from datetime import datetime, timedelta, timezone
 
-    Uses pending picks from --suggest if available, otherwise asks Claude directly.
-    Demotes old promoted papers (unless user started reading them).
+    from distillate import config
+    from distillate.state import State
+
+    config.setup_logging()
+    state = State()
+
+    now = datetime.now(timezone.utc)
+    since = (now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=7)).isoformat()
+    papers = state.documents_processed_since(since)
+
+    if not papers:
+        print("  No papers read in the last 7 days.")
+        return
+
+    papers = sorted(papers, key=lambda d: d.get("processed_at", ""), reverse=True)
+
+    print()
+    print(f"  Reading digest — last 7 days ({len(papers)} paper{'s' if len(papers) != 1 else ''})")
+    print("  " + "-" * 48)
+
+    for p in papers:
+        title = p.get("title", "Untitled")
+        summary = p.get("summary", "")
+        engagement = p.get("engagement", 0)
+        highlight_count = p.get("highlight_count", 0)
+        processed_at = p.get("processed_at", "")
+
+        date_str = ""
+        if processed_at:
+            try:
+                dt = datetime.fromisoformat(processed_at)
+                date_str = dt.strftime("%b %-d")
+            except (ValueError, TypeError):
+                pass
+
+        stats = []
+        if engagement:
+            stats.append(f"{engagement}% engaged")
+        if highlight_count:
+            stats.append(f"{highlight_count} highlights")
+        stats_str = f" ({', '.join(stats)})" if stats else ""
+
+        print()
+        print(f"  {title}")
+        if date_str or stats_str:
+            print(f"    {date_str}{stats_str}")
+        if summary:
+            print(f"    {summary}")
+
+    # Queue stats
+    unread = state.documents_with_status("on_remarkable")
+    if unread:
+        print()
+        print(f"  {len(unread)} paper{'s' if len(unread) != 1 else ''} in your reading queue.")
+    print()
+
+
+def _suggest() -> None:
+    """Suggest papers to read next, promote them on reMarkable.
+
+    1. Demotes old promoted papers back to Inbox (unless user started reading)
+    2. Asks Claude for 3 picks from the reading queue
+    3. Prints suggestions to the terminal
+    4. Moves picked papers to the front of the Distillate folder
     """
     from datetime import datetime, timedelta, timezone
 
@@ -484,58 +547,61 @@ def _promote() -> None:
             state.promoted_papers = remaining_promoted
             state.save()
 
-        # Use pending picks from --suggest, or generate new ones
-        pending = state.pending_promotions
+        # Generate suggestions
         unread = state.documents_with_status("on_remarkable")
         if not unread:
-            log.info("No papers in reading queue, nothing to promote")
+            print("  No papers in your reading queue.")
             return
 
-        if pending:
-            pick_keys = pending
-            log.info("Using %d pending pick(s) from --suggest", len(pick_keys))
-        else:
-            # No pending picks — ask Claude directly
-            unread_enriched = []
-            for doc in unread:
-                meta = doc.get("metadata", {})
-                unread_enriched.append({
-                    "title": doc["title"],
-                    "tags": meta.get("tags", []),
-                    "paper_type": meta.get("paper_type", ""),
-                    "uploaded_at": doc.get("uploaded_at", ""),
-                })
+        unread_enriched = []
+        for doc in unread:
+            meta = doc.get("metadata", {})
+            unread_enriched.append({
+                "title": doc["title"],
+                "tags": meta.get("tags", []),
+                "paper_type": meta.get("paper_type", ""),
+                "uploaded_at": doc.get("uploaded_at", ""),
+            })
 
-            since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-            recent = state.documents_processed_since(since)
-            recent_enriched = []
-            for doc in recent:
-                meta = doc.get("metadata", {})
-                recent_enriched.append({
-                    "title": doc["title"],
-                    "tags": meta.get("tags", []),
-                    "summary": doc.get("summary", ""),
-                    "engagement": doc.get("engagement", 0),
-                })
+        since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        recent = state.documents_processed_since(since)
+        recent_enriched = []
+        for doc in recent:
+            meta = doc.get("metadata", {})
+            recent_enriched.append({
+                "title": doc["title"],
+                "tags": meta.get("tags", []),
+                "summary": doc.get("summary", ""),
+                "engagement": doc.get("engagement", 0),
+            })
 
-            result = summarizer.suggest_papers(unread_enriched, recent_enriched)
-            if not result:
-                log.warning("Could not generate suggestions")
-                return
+        result = summarizer.suggest_papers(unread_enriched, recent_enriched)
+        if not result:
+            log.warning("Could not generate suggestions")
+            return
 
-            # Parse picks from Claude's response (bidirectional title matching)
-            title_to_key = {doc["title"].lower(): doc["zotero_item_key"] for doc in unread}
-            pick_keys = []
-            for line in result.strip().split("\n"):
-                clean = line.strip().replace("**", "")
-                if not clean:
-                    continue
-                clean_lower = clean.lower()
-                suggestion_title = re.sub(r"^\d+\.\s*", "", clean_lower).rstrip(" —-").split(" — ")[0].strip()
-                for title_lower, key in title_to_key.items():
-                    if (title_lower in clean_lower or suggestion_title in title_lower) and key not in pick_keys:
-                        pick_keys.append(key)
-                        break
+        # Print suggestions to terminal
+        print()
+        print("  Suggested papers to read next:")
+        print()
+        for line in result.strip().split("\n"):
+            if line.strip():
+                print(f"  {line.strip()}")
+        print()
+
+        # Parse picks from Claude's response (bidirectional title matching)
+        title_to_key = {doc["title"].lower(): doc["zotero_item_key"] for doc in unread}
+        pick_keys = []
+        for line in result.strip().split("\n"):
+            clean = line.strip().replace("**", "")
+            if not clean:
+                continue
+            clean_lower = clean.lower()
+            suggestion_title = re.sub(r"^\d+\.\s*", "", clean_lower).rstrip(" —-").split(" — ")[0].strip()
+            for title_lower, key in title_to_key.items():
+                if (title_lower in clean_lower or suggestion_title in title_lower) and key not in pick_keys:
+                    pick_keys.append(key)
+                    break
 
         # Move picked papers from Inbox to Papers root
         inbox_docs = remarkable_client.list_folder(config.RM_FOLDER_INBOX)
@@ -554,15 +620,14 @@ def _promote() -> None:
                 )
                 doc["promoted_at"] = datetime.now(timezone.utc).isoformat()
                 promoted_keys.append(key)
-                log.info("Promoted: %s", doc["title"])
+                print(f"  Promoted: {doc['title']}")
 
         state.promoted_papers = promoted_keys
-        state.pending_promotions = []  # Clear pending after execution
+        state.pending_promotions = []
         state.save()
-        log.info("Promoted %d paper(s) to Papers root", len(promoted_keys))
 
     except Exception:
-        log.exception("Unexpected error in promote")
+        log.exception("Unexpected error in suggest")
         raise
     finally:
         release_lock()
@@ -584,6 +649,11 @@ def _init_wizard() -> None:
     print("    4. When done, move the document to the Read folder")
     print("    5. Distillate extracts your highlights, creates an")
     print("       annotated PDF, writes a note, and archives it")
+    print()
+    print("  Power-user features (optional):")
+    print("    - AI summaries & key learnings (with Anthropic API)")
+    print("    - Daily reading suggestions & weekly digest emails")
+    print("      (with a free Resend account)")
     print()
     print("  Let's get you set up. This takes about 2 minutes.")
     print()
@@ -645,29 +715,10 @@ def _init_wizard() -> None:
     print("  via the reMarkable Cloud.")
     print()
 
-    # Check if rmapi is installed
     import shutil
-    if not shutil.which("rmapi"):
-        print("  rmapi is not installed. You need it before continuing.")
-        print()
-        import platform
-        if platform.system() == "Darwin":
-            print("  Install with Homebrew:")
-            print("    brew install rmapi")
-        else:
-            print("  Download the latest binary:")
-            print("    https://github.com/ddvk/rmapi/releases")
-        print()
-        input("  Press Enter once rmapi is installed...")
-        print()
-        if shutil.which("rmapi"):
-            print("  rmapi found!")
-        else:
-            print("  rmapi still not found — you can install it later.")
-            print("  Run 'distillate --register' when ready.")
-            print()
-
     if shutil.which("rmapi"):
+        print("  rmapi found.")
+        print()
         print("  You need to authorize this device once.")
         print()
         register = input("  Register your reMarkable now? [Y/n] ").strip().lower()
@@ -676,6 +727,49 @@ def _init_wizard() -> None:
             register_interactive()
         else:
             print("  Skipped. Run 'distillate --register' later.")
+    else:
+        print("  Distillate requires rmapi to sync files with your")
+        print("  reMarkable via the cloud.")
+        print()
+        import platform
+        if platform.system() == "Darwin":
+            print("  Install it with Homebrew:")
+            print("    brew install rmapi")
+        else:
+            print("  Download the latest binary from:")
+            print("    https://github.com/ddvk/rmapi/releases")
+        print()
+        install_now = input("  Install rmapi now? [Y/n] ").strip().lower()
+        if install_now != "n":
+            if platform.system() == "Darwin":
+                print()
+                print("  Running: brew install rmapi")
+                print()
+                import subprocess
+                result = subprocess.run(
+                    ["brew", "install", "rmapi"],
+                    capture_output=False,
+                )
+                print()
+                if result.returncode == 0 and shutil.which("rmapi"):
+                    print("  rmapi installed successfully!")
+                    print()
+                    register = input("  Register your reMarkable now? [Y/n] ").strip().lower()
+                    if register != "n":
+                        from distillate.remarkable_auth import register_interactive
+                        register_interactive()
+                    else:
+                        print("  Skipped. Run 'distillate --register' later.")
+                else:
+                    print("  Installation failed. You can install manually later.")
+                    print("  Run 'distillate --register' when ready.")
+            else:
+                print()
+                print("  Please install rmapi manually from the link above,")
+                print("  then run 'distillate --register' to connect.")
+        else:
+            print("  Skipped. Install rmapi and run 'distillate --register'")
+            print("  when you're ready.")
     print()
 
     # -- Step 3: Notes & PDFs --
@@ -684,58 +778,84 @@ def _init_wizard() -> None:
     print("  Step 3 of 5: Notes & PDFs")
     print("  " + "-" * 48)
     print()
-    print("  When you finish reading a paper, Distillate creates:")
+    print("  When you finish reading, Distillate creates two files")
+    print("  for each paper:")
+    print()
     print("    - An annotated PDF with your highlights overlaid")
-    print("      on the original")
-    print("    - A markdown note with metadata and highlights")
-    print("      grouped by page")
+    print("      on the original document")
+    print("    - A markdown note with paper metadata, your")
+    print("      highlights grouped by page, and (optionally)")
+    print("      AI-generated summaries")
     print()
-    print("  Choose a folder where these files should go.")
+    print("  These files need a home on your computer. The best")
+    print("  option is an Obsidian vault — a free, local-first")
+    print("  markdown knowledge base (https://obsidian.md).")
     print()
-    folder = input("  Output folder path (Enter to skip): ").strip()
+    print("  With Obsidian, Distillate also creates:")
+    print("    - Wiki-links between your paper notes")
+    print("    - A searchable paper database (via Dataview)")
+    print("    - A reading statistics dashboard")
+    print("    - 'Open in Obsidian' deep links from Zotero")
+    print()
+    use_obsidian = input("  Use an Obsidian vault? [Y/n] ").strip().lower()
 
-    if folder:
-        folder = str(Path(folder).expanduser().resolve())
+    if use_obsidian != "n":
         print()
-        print("  If this is an Obsidian vault, Distillate can add:")
-        print("    - Wiki-links between your paper notes")
-        print("    - A Dataview-powered searchable paper database")
-        print("    - A reading statistics dashboard")
-        print("    - 'Open in Obsidian' deep links from Zotero")
+        print("  To find your vault path in Obsidian:")
+        print("    Open Obsidian > Settings > Files and Links")
+        print("    The path is shown under 'Vault path'")
         print()
-        is_obsidian = input("  Is this an Obsidian vault? [y/N] ").strip().lower()
-        if is_obsidian == "y":
-            save_to_env("OBSIDIAN_VAULT_PATH", folder)
-            print("  Obsidian mode enabled. Notes will go to:")
-            print(f"    {folder}/Distillate/")
+        vault_path = input("  Vault path: ").strip()
+        if vault_path:
+            vault_path = str(Path(vault_path).expanduser().resolve())
+            save_to_env("OBSIDIAN_VAULT_PATH", vault_path)
+            print()
+            print("  Obsidian mode enabled! Distillate will create a")
+            print("  Distillate/ folder inside your vault at:")
+            print(f"    {vault_path}/Distillate/")
         else:
+            print("  No path provided — skipping.")
+    else:
+        print()
+        print("  You can use any local folder instead. You'll get")
+        print("  the annotated PDFs and markdown notes, but not")
+        print("  the Obsidian-specific features listed above.")
+        print()
+        folder = input("  Output folder path (Enter to skip): ").strip()
+        if folder:
+            folder = str(Path(folder).expanduser().resolve())
             save_to_env("OUTPUT_PATH", folder)
             Path(folder).mkdir(parents=True, exist_ok=True)
             print(f"  Notes and PDFs will go to: {folder}")
-    else:
-        print("  Skipped. Notes will only be stored in Zotero.")
+        else:
+            print("  Skipped. Notes will only be stored in Zotero.")
     print()
 
-    # -- Step 4: Zotero storage --
+    # -- Step 4: PDF storage --
 
     print("  " + "-" * 48)
-    print("  Step 4 of 5: Zotero Storage")
+    print("  Step 4 of 5: PDF Storage")
     print("  " + "-" * 48)
     print()
-    print("  Zotero offers 300 MB of free storage for PDF")
-    print("  attachments. Distillate can delete the PDF from Zotero")
-    print("  after uploading it to your reMarkable, freeing up")
-    print("  storage. The file is still on your tablet and saved")
-    print("  locally with your notes.")
+    print("  After syncing a paper to your reMarkable, where should")
+    print("  the PDF be kept?")
     print()
-    keep = input("  Keep PDFs in Zotero after syncing? [Y/n] ").strip().lower()
-    if keep == "n":
+    print("  Zotero gives you 300 MB of free cloud storage for PDFs.")
+    print("  If you're on the free plan, that fills up fast.")
+    print()
+    print("  Either way, the PDF is always on your reMarkable and")
+    print("  saved locally with your notes after you read it.")
+    print()
+    print("    1. Keep in Zotero (uses Zotero storage)")
+    print("    2. Remove from Zotero after sync (saves space)")
+    print()
+    storage = input("  Your choice [1]: ").strip()
+    if storage == "2":
         save_to_env("KEEP_ZOTERO_PDF", "false")
-        print("  PDFs will be removed from Zotero after upload")
-        print("  (saved on reMarkable + locally).")
+        print("  PDFs will be removed from Zotero after upload.")
     else:
         save_to_env("KEEP_ZOTERO_PDF", "true")
-        print("  PDFs will stay in Zotero (uses storage).")
+        print("  PDFs will stay in Zotero.")
     print()
 
     # -- Step 5: Optional features --
@@ -790,38 +910,96 @@ def _init_wizard() -> None:
     print()
     print(f"  Config saved to: {ENV_PATH}")
     print()
-    print("  Next steps:")
-    print("    1. Save a paper to Zotero using the browser connector")
-    print("    2. Run: distillate")
-    print("    3. Read and highlight on your reMarkable")
-    print("    4. Move the document to Distillate/Read when done")
-    print("    5. Run distillate again — your note will be waiting")
+    print("  " + "-" * 48)
+    print("  How it works")
+    print("  " + "-" * 48)
     print()
-    print("  For automatic syncing (runs every 15 minutes):")
-    print("    macOS:  ./scripts/install-launchd.sh")
-    print("    Linux:  crontab -e")
+    print("  There are just three commands:")
+    print()
+    print("    distillate --sync")
+    print("      Syncs everything in both directions:")
+    print("      Zotero -> reMarkable (new papers)")
+    print("      reMarkable -> notes (papers you finished reading)")
+    print()
+    print("    distillate --suggest")
+    print("      Picks 3 papers from your queue and moves them")
+    print("      to the front of your Distillate folder. Unread")
+    print("      suggestions are moved back to Inbox automatically.")
+    print()
+    print("    distillate --digest")
+    print("      Shows a summary of what you read this week.")
+    print()
+    print("  Your workflow:")
+    print("    1. Save a paper to Zotero (browser connector)")
+    print("    2. distillate --sync (PDF lands on your reMarkable)")
+    print("    3. Read and highlight on your reMarkable")
+    print("    4. Move the document to Distillate/Read")
+    print("    5. distillate --sync (annotated PDF + notes are ready)")
+    print()
+
+    # Offer automated sync
+    print("  " + "-" * 48)
+    print("  Automatic syncing")
+    print("  " + "-" * 48)
+    print()
+    print("  Distillate can run automatically every 15 minutes")
+    print("  so your papers stay in sync without running it manually.")
+    print()
+
+    import platform
+    if platform.system() == "Darwin":
+        setup_auto = input("  Set up automatic syncing? [Y/n] ").strip().lower()
+        if setup_auto != "n":
+            import subprocess
+            scripts_dir = Path(__file__).parent.parent / "scripts"
+            launchd_script = scripts_dir / "install-launchd.sh"
+            if launchd_script.exists():
+                print()
+                result = subprocess.run(
+                    ["bash", str(launchd_script)],
+                    capture_output=False,
+                )
+                if result.returncode == 0:
+                    print()
+                    print("  Automatic syncing enabled (every 15 minutes).")
+                else:
+                    print()
+                    print("  Could not set up automatic syncing.")
+                    print(f"  You can try manually: bash {launchd_script}")
+            else:
+                print("  Launch script not found. You can set it up manually:")
+                print("    crontab -e")
+                print("    */15 * * * * distillate")
+        else:
+            print("  Skipped. You can set it up later:")
+            print("    bash ./scripts/install-launchd.sh")
+    else:
+        print("  Add this to your crontab (crontab -e):")
+        print("    */15 * * * * distillate")
+
+    print()
+    print("  " + "=" * 48)
+    print("  Run 'distillate' now to sync your first papers!")
+    print("  " + "=" * 48)
     print()
 
 
 _VERSION = "0.1.0"
 
 _HELP = """\
-Usage: distillate [command]
+Usage: distillate <command>
 
-Commands:
-  (no args)              Run the full sync workflow
-  --init                 Interactive setup wizard
-  --register             Register a reMarkable device
-  --dry-run              Preview what would happen (no changes)
-  --reprocess "Title"    Re-run highlights + summary for a paper
-  --suggest              Get 3 paper suggestions from your queue
-  --promote              Move suggested papers to reMarkable root
-  --digest               Send a weekly reading digest email
-  --themes YYYY-MM       Generate monthly research themes synthesis
-  --backfill-s2          Backfill Semantic Scholar citation data
-  --sync-state           Push state to a GitHub Gist
-  --help                 Show this help message
-  --version              Show version
+  distillate --sync     Sync Zotero -> reMarkable -> notes
+  distillate --init     First-time setup wizard
+  distillate --suggest  Suggest papers to read next from your queue
+  distillate --digest   Show your reading digest
+
+Options:
+  -h, --help            Show this help
+  -V, --version         Show version
+
+Advanced:
+  --reprocess "Title"   Re-extract highlights for a paper
 """
 
 
@@ -852,6 +1030,10 @@ def main():
         return
 
     if "--digest" in sys.argv:
+        _print_digest()
+        return
+
+    if "--send-digest" in sys.argv:
         from distillate import digest
         digest.send_weekly_digest()
         return
@@ -864,13 +1046,13 @@ def main():
         _backfill_s2()
         return
 
-    if "--suggest" in sys.argv:
-        from distillate import digest
-        digest.send_suggestion()
+    if "--suggest" in sys.argv or "--promote" in sys.argv:
+        _suggest()
         return
 
-    if "--promote" in sys.argv:
-        _promote()
+    if "--suggest-email" in sys.argv:
+        from distillate import digest
+        digest.send_suggestion()
         return
 
     if "--themes" in sys.argv:

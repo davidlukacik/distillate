@@ -17,7 +17,8 @@ def _run_wizard(inputs, tmp_path, monkeypatch):
 
     with patch("builtins.input", lambda _: next(input_iter)), \
          patch("requests.get", return_value=mock_resp), \
-         patch("shutil.which", return_value="/usr/local/bin/rmapi"):
+         patch("shutil.which", return_value="/usr/local/bin/rmapi"), \
+         patch("platform.system", return_value="Linux"):
         from distillate.main import _init_wizard
         _init_wizard()
 
@@ -31,8 +32,9 @@ class TestInitWizard:
         env_file = _run_wizard([
             "test_api_key",     # API key
             "12345",            # User ID
-            "n",                # Skip reMarkable
-            "",                 # Skip output folder
+            "n",                # Skip reMarkable registration
+            "n",                # Don't use Obsidian
+            "",                 # Skip plain folder
             "",                 # Keep PDFs (default Y)
             "",                 # Skip Anthropic
             "",                 # Skip Resend
@@ -56,9 +58,9 @@ class TestInitWizard:
         env_file = _run_wizard([
             "key",              # API key
             "999",              # User ID
-            "n",                # Skip reMarkable
-            vault_path,         # Output folder
-            "y",                # Is Obsidian vault
+            "n",                # Skip reMarkable registration
+            "",                 # Use Obsidian (default Y)
+            vault_path,         # Vault path
             "",                 # Keep PDFs (default Y)
             "",                 # Skip Anthropic
             "",                 # Skip Resend
@@ -72,9 +74,9 @@ class TestInitWizard:
         env_file = _run_wizard([
             "key",              # API key
             "999",              # User ID
-            "n",                # Skip reMarkable
-            output_path,        # Output folder
-            "n",                # Not Obsidian
+            "n",                # Skip reMarkable registration
+            "n",                # Don't use Obsidian
+            output_path,        # Plain folder path
             "",                 # Keep PDFs (default Y)
             "",                 # Skip Anthropic
             "",                 # Skip Resend
@@ -88,8 +90,9 @@ class TestInitWizard:
         env_file = _run_wizard([
             "key",                  # API key
             "999",                  # User ID
-            "n",                    # Skip reMarkable
-            "",                     # Skip output folder
+            "n",                    # Skip reMarkable registration
+            "n",                    # Don't use Obsidian
+            "",                     # Skip plain folder
             "",                     # Keep PDFs (default Y)
             "sk-ant-test123",       # Anthropic key
             "re_test456",           # Resend key
@@ -105,9 +108,10 @@ class TestInitWizard:
         env_file = _run_wizard([
             "key",              # API key
             "999",              # User ID
-            "n",                # Skip reMarkable
-            "",                 # Skip output folder
-            "n",                # Don't keep PDFs
+            "n",                # Skip reMarkable registration
+            "n",                # Don't use Obsidian
+            "",                 # Skip plain folder
+            "2",                # Remove PDFs from Zotero after sync
             "",                 # Skip Anthropic
             "",                 # Skip Resend
         ], tmp_path, monkeypatch)
