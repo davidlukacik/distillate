@@ -33,7 +33,7 @@
     }
 
     h1 {
-      font-family: Georgia, 'Times New Roman', serif;
+      font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', serif;
       font-size: 3.2rem;
       font-weight: 700;
       letter-spacing: -0.02em;
@@ -42,7 +42,7 @@
     }
 
     .tagline {
-      font-family: Georgia, 'Times New Roman', serif;
+      font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', serif;
       font-size: 1.25rem;
       font-style: italic;
       color: var(--fg);
@@ -73,23 +73,24 @@
     .integrations {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px 20px;
+      gap: 6px 18px;
+      margin-top: 32px;
       margin-bottom: 48px;
       padding: 0;
+      justify-content: center;
     }
 
     .integrations a {
       font-size: 0.8rem;
-      color: var(--muted);
       text-decoration: none;
-      font-weight: 500;
+      font-weight: 600;
       letter-spacing: 0.03em;
       text-transform: uppercase;
-      transition: color 0.15s;
+      transition: opacity 0.15s;
     }
 
     .integrations a:hover {
-      color: var(--fg);
+      opacity: 0.7;
     }
 
     .install {
@@ -107,7 +108,8 @@
     }
 
     h2 {
-      font-size: 1.1rem;
+      font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', serif;
+      font-size: 1.2rem;
       font-weight: 600;
       margin-bottom: 16px;
       margin-top: 0;
@@ -314,15 +316,6 @@
                   ├── Daily paper suggestions
                   └── Weekly digest emails</div>
 
-    <div class="integrations">
-      <a href="https://www.zotero.org/">Zotero</a>
-      <a href="https://remarkable.com/">reMarkable</a>
-      <a href="https://obsidian.md/">Obsidian</a>
-      <a href="https://www.semanticscholar.org/">Semantic Scholar</a>
-      <a href="https://www.anthropic.com/">Anthropic</a>
-      <a href="https://resend.com/">Resend</a>
-    </div>
-
     <div class="install">
       <code>pip install distillate &amp;&amp; distillate --init</code>
     </div>
@@ -389,6 +382,15 @@
           <em class="extra-subtitle">Semantic Scholar</em>
           <span>See how influential each paper is with citation counts from the Semantic Scholar API</span>
         </div>
+      </div>
+
+      <div class="integrations">
+        <a href="https://www.zotero.org/" style="color:#cc2936;">Zotero</a>
+        <a href="https://remarkable.com/" style="color:#1a1a1a;">reMarkable</a>
+        <a href="https://obsidian.md/" style="color:#7c3aed;">Obsidian</a>
+        <a href="https://www.semanticscholar.org/" style="color:#1857b6;">Semantic Scholar</a>
+        <a href="https://www.anthropic.com/" style="color:#c96442;">Anthropic</a>
+        <a href="https://resend.com/" style="color:#1a1a1a;">Resend</a>
       </div>
     </div>
 
