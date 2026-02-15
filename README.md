@@ -9,7 +9,7 @@ Distill research papers from Zotero through reMarkable into structured notes.
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ```
-                    $ distillate
+$ distillate
 
 Save paper in Zotero  ──>  PDF on reMarkable
                                   │

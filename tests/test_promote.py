@@ -59,7 +59,7 @@ class TestStatDocument:
 
         assert info is None
 
-    def test_returns_none_on_empty_output(self):
+    def test_returns_empty_dict_on_unparseable_output(self):
         from distillate.remarkable_client import stat_document
 
         fake_result = subprocess.CompletedProcess(
@@ -68,7 +68,8 @@ class TestStatDocument:
         with patch("distillate.remarkable_client._run", return_value=fake_result):
             info = stat_document("Papers", "Weird Doc")
 
-        assert info is None
+        assert info == {}
+        assert info is not None  # command succeeded, should not be None
 
     def test_handles_non_numeric_current_page(self):
         from distillate.remarkable_client import stat_document

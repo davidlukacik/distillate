@@ -203,7 +203,7 @@ def stat_document(folder: str, doc_name: str) -> Optional[Dict[str, Any]]:
                 info["page_count"] = int(line.split(":", 1)[1].strip())
             except ValueError:
                 pass
-    return info if info else None
+    return info
 
 
 def move_document(doc_name: str, from_folder: str, to_folder: str) -> None:
