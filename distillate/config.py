@@ -27,7 +27,10 @@ load_dotenv(ENV_PATH)
 def _require(var: str) -> str:
     value = os.environ.get(var, "").strip()
     if not value or value.startswith("your_"):
-        print(f"Error: {var} is not set. Fill it in {ENV_PATH}")
+        if not ENV_PATH.exists():
+            print("Error: No config found. Run 'distillate --init' to get started.")
+        else:
+            print(f"Error: {var} is not set. Fill it in {ENV_PATH}")
         sys.exit(1)
     return value
 
