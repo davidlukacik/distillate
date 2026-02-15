@@ -148,9 +148,8 @@ def _reading_stats_html(state: State) -> str:
     month_line = _reading_stats_line(month_papers, "This month")
 
     return (
-        f'<hr style="border:none;border-top:1px solid #eee;margin:20px 0;">'
-        f'<p style="color:#999;font-size:11px;margin:0;">{week_line}</p>'
-        f'<p style="color:#999;font-size:11px;margin:0;">{month_line}</p>'
+        f'<p style="color:#999;font-size:13px;margin:24px 0 0 0;">{week_line}</p>'
+        f'<p style="color:#999;font-size:13px;margin:0;">{month_line}</p>'
     )
 
 
@@ -198,8 +197,7 @@ def _queue_health_html(state: State) -> str:
     )
 
     return (
-        f'<hr style="border:none;border-top:1px solid #eee;margin:20px 0;">'
-        f'<p style="color:#999;font-size:11px;">'
+        f'<p style="color:#999;font-size:13px;margin:0;">'
         f'Queue: {total} papers waiting'
         f' &middot; oldest: {oldest_days} days'
         f' &middot; this week: +{added_this_week} added, '
