@@ -2,6 +2,8 @@
 state.json
 state.lock
 *.pdf
+*.rmdoc
+*.zip
 .claude/
 uv.lock
 
@@ -12,3 +14,5 @@ __pycache__/
 dist/
 build/
 .venv/
+.ruff_cache/
+.pytest_cache/

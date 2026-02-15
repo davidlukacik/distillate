@@ -570,8 +570,7 @@ def _promote() -> None:
 
 def _init_wizard() -> None:
     """Interactive setup wizard for first-time users."""
-    from distillate import config
-    from distillate.config import save_to_env, CONFIG_DIR, ENV_PATH
+    from distillate.config import save_to_env, ENV_PATH
 
     print()
     print("  Welcome to Distillate")
@@ -705,7 +704,37 @@ def _init_wizard() -> None:
     print()
 
 
+_VERSION = "0.1.0"
+
+_HELP = """\
+Usage: distillate [command]
+
+Commands:
+  (no args)              Run the full sync workflow
+  --init                 Interactive setup wizard
+  --register             Register a reMarkable device
+  --dry-run              Preview what would happen (no changes)
+  --reprocess "Title"    Re-run highlights + summary for a paper
+  --suggest              Get 3 paper suggestions from your queue
+  --promote              Move suggested papers to reMarkable root
+  --digest               Send a weekly reading digest email
+  --themes YYYY-MM       Generate monthly research themes synthesis
+  --backfill-s2          Backfill Semantic Scholar citation data
+  --sync-state           Push state to a GitHub Gist
+  --help                 Show this help message
+  --version              Show version
+"""
+
+
 def main():
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(_HELP)
+        return
+
+    if "--version" in sys.argv or "-V" in sys.argv:
+        print(f"distillate {_VERSION}")
+        return
+
     if "--init" in sys.argv:
         _init_wizard()
         return
