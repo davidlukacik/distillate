@@ -433,7 +433,7 @@ def send_suggestion() -> None:
         log.warning("Could not generate suggestions")
         return
 
-    # Store picks for --promote to execute later (works from GH Actions)
+    # Store picks for auto-promote to execute during next sync
     title_to_key = {doc["title"].lower(): doc["zotero_item_key"] for doc in unread}
     pending = []
     for line in result.strip().split("\n"):

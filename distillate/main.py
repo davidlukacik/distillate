@@ -430,6 +430,105 @@ def _sync_state() -> None:
     log.info("Synced state.json to gist %s", gist_id)
 
 
+def _status() -> None:
+    """Print a quick status overview to the terminal."""
+    from datetime import datetime, timedelta, timezone
+
+    from distillate import config
+    from distillate.state import State
+
+    config.setup_logging()
+    state = State()
+    now = datetime.now(timezone.utc)
+
+    print()
+    print("  Distillate")
+    print("  " + "\u2500" * 40)
+
+    # Queue
+    queue = state.documents_with_status("on_remarkable")
+    oldest_days = 0
+    if queue:
+        oldest_uploaded = min(d.get("uploaded_at", "") for d in queue)
+        if oldest_uploaded:
+            try:
+                oldest_days = (now - datetime.fromisoformat(oldest_uploaded)).days
+            except (ValueError, TypeError):
+                pass
+    queue_str = f"{len(queue)} paper{'s' if len(queue) != 1 else ''} waiting"
+    if oldest_days:
+        queue_str += f" (oldest: {oldest_days} days)"
+    print(f"  Queue:     {queue_str}")
+
+    # Promoted
+    promoted = state.promoted_papers
+    if promoted:
+        titles = []
+        for key in promoted:
+            doc = state.get_document(key)
+            if doc:
+                titles.append(doc["title"])
+        if titles:
+            print(f"  Promoted:  {', '.join(titles)}")
+
+    # Last sync
+    last_poll = state.last_poll_timestamp
+    if last_poll:
+        try:
+            poll_dt = datetime.fromisoformat(last_poll)
+            delta = now - poll_dt
+            if delta.total_seconds() < 60:
+                ago = "just now"
+            elif delta.total_seconds() < 3600:
+                mins = int(delta.total_seconds() / 60)
+                ago = f"{mins} min{'s' if mins != 1 else ''} ago"
+            elif delta.total_seconds() < 86400:
+                hours = int(delta.total_seconds() / 3600)
+                ago = f"{hours} hour{'s' if hours != 1 else ''} ago"
+            else:
+                days = delta.days
+                ago = f"{days} day{'s' if days != 1 else ''} ago"
+            print(f"  Last sync: {ago}")
+        except (ValueError, TypeError):
+            pass
+    else:
+        print("  Last sync: never")
+
+    # Reading stats
+    week_ago = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=7)
+    month_ago = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=30)
+    week_papers = state.documents_processed_since(week_ago.isoformat())
+    month_papers = state.documents_processed_since(month_ago.isoformat())
+
+    def _stats_line(papers, label):
+        count = len(papers)
+        pages = sum(d.get("page_count", 0) for d in papers)
+        words = sum(d.get("highlight_word_count", 0) for d in papers)
+        parts = [f"read {count} paper{'s' if count != 1 else ''}"]
+        if pages:
+            parts.append(f"{pages:,} pages")
+        if words:
+            parts.append(f"{words:,} words highlighted")
+        sep = " \u00b7 "
+        return f"{label}: {sep.join(parts)}"
+
+    print()
+    print(f"  {_stats_line(week_papers, 'This week')}")
+    print(f"  {_stats_line(month_papers, 'This month')}")
+
+    # Awaiting PDF
+    awaiting = state.documents_with_status("awaiting_pdf")
+    if awaiting:
+        print()
+        print(f"  Awaiting PDF: {len(awaiting)} paper{'s' if len(awaiting) != 1 else ''}")
+
+    # Total processed
+    processed = state.documents_with_status("processed")
+    print()
+    print(f"  Total: {len(processed)} papers read, {len(queue)} in queue")
+    print()
+
+
 def _print_digest() -> None:
     """Print a reading digest to the terminal."""
     from datetime import datetime, timedelta, timezone
@@ -483,11 +582,27 @@ def _print_digest() -> None:
         if summary:
             print(f"    {summary}")
 
-    # Queue stats
+    # Reading stats footer (matches email format)
+    month_since = (now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=30)).isoformat()
+    month_papers = state.documents_processed_since(month_since)
     unread = state.documents_with_status("on_remarkable")
-    if unread:
-        print()
-        print(f"  {len(unread)} paper{'s' if len(unread) != 1 else ''} in your reading queue.")
+
+    def _stats_line(docs, label):
+        count = len(docs)
+        pages = sum(d.get("page_count", 0) for d in docs)
+        words = sum(d.get("highlight_word_count", 0) for d in docs)
+        parts = [f"read {count} paper{'s' if count != 1 else ''}"]
+        if pages:
+            parts.append(f"{pages:,} pages")
+        if words:
+            parts.append(f"{words:,} words highlighted")
+        sep = " \u00b7 "
+        return f"{label}: {sep.join(parts)}"
+
+    print()
+    print(f"  {_stats_line(papers, 'This week')}")
+    print(f"  {_stats_line(month_papers, 'This month')}")
+    print(f"  Queue: {len(unread)} paper{'s' if len(unread) != 1 else ''} waiting")
     print()
 
 
@@ -602,6 +717,7 @@ def _suggest() -> None:
     from datetime import datetime, timedelta, timezone
 
     from distillate import config
+    from distillate import remarkable_client
     from distillate import summarizer
     from distillate.digest import fetch_pending_from_gist
     from distillate.state import State, acquire_lock, release_lock
@@ -694,6 +810,9 @@ def _suggest() -> None:
 
         _demote_and_promote(state, pick_keys, verbose=True)
 
+    except remarkable_client.RmapiAuthError as e:
+        print(f"\n  {e}\n")
+        return
     except Exception:
         log.exception("Unexpected error in suggest")
         raise
@@ -982,12 +1101,15 @@ def _init_wizard() -> None:
     print("  How it works")
     print("  " + "-" * 48)
     print()
-    print("  There are just three commands:")
+    print("  There are just four commands:")
     print()
     print("    distillate --sync")
     print("      Syncs everything in both directions:")
     print("      Zotero -> reMarkable (new papers)")
     print("      reMarkable -> notes (papers you finished reading)")
+    print()
+    print("    distillate --status")
+    print("      Shows queue health and reading stats at a glance.")
     print()
     print("    distillate --suggest")
     print("      Picks 3 papers from your queue and moves them")
@@ -1052,13 +1174,14 @@ def _init_wizard() -> None:
     print()
 
 
-_VERSION = "0.1.0"
+_VERSION = "0.1.1"
 
 _HELP = """\
 Usage: distillate <command>
 
   distillate --sync     Sync Zotero -> reMarkable -> notes
   distillate --init     First-time setup wizard
+  distillate --status   Show queue health and reading stats
   distillate --suggest  Suggest papers to read next from your queue
   distillate --digest   Show your reading digest
 
@@ -1092,6 +1215,10 @@ def main():
     from distillate import config
     config.ensure_loaded()
 
+    if "--status" in sys.argv:
+        _status()
+        return
+
     if "--reprocess" in sys.argv:
         idx = sys.argv.index("--reprocess")
         _reprocess(sys.argv[idx + 1:])
@@ -1114,7 +1241,7 @@ def main():
         _backfill_s2()
         return
 
-    if "--suggest" in sys.argv or "--promote" in sys.argv:
+    if "--suggest" in sys.argv:
         _suggest()
         return
 
@@ -1613,6 +1740,9 @@ def main():
         else:
             log.info("Nothing to do.")
 
+    except remarkable_client.RmapiAuthError as e:
+        print(f"\n  {e}\n")
+        return
     except Exception:
         log.exception("Unexpected error")
         raise
