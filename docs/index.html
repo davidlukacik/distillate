@@ -219,7 +219,12 @@
       width: 100%;
       border-collapse: collapse;
       font-size: 0.9rem;
+      table-layout: fixed;
     }
+
+    .requires table col.col-main { width: 55%; }
+    .requires table col.col-badge { width: 12%; }
+    .requires table col.col-notes { width: 33%; }
 
     .requires th {
       text-align: left;
@@ -414,17 +419,19 @@ $ distillate --init</code>
     <div class="requires commands">
       <h2>Commands</h2>
       <table>
-        <tr><td><code>distillate</code></td><td></td><td>Run the full sync workflow</td></tr>
-        <tr><td><code>distillate --suggest</code></td><td></td><td>Get paper suggestions, promote to reMarkable</td></tr>
-        <tr><td><code>distillate --status</code></td><td></td><td>Show queue health and reading stats</td></tr>
-        <tr><td><code>distillate --digest</code></td><td></td><td>Send a weekly reading digest email</td></tr>
-        <tr><td><code>distillate --init</code></td><td></td><td>Run the setup wizard</td></tr>
+        <colgroup><col class="col-main"><col class="col-badge"><col class="col-notes"></colgroup>
+        <tr><td colspan="2"><code>distillate</code></td><td>Run the full sync workflow</td></tr>
+        <tr><td colspan="2"><code>distillate --suggest</code></td><td>Get paper suggestions, promote to reMarkable</td></tr>
+        <tr><td colspan="2"><code>distillate --status</code></td><td>Show queue health and reading stats</td></tr>
+        <tr><td colspan="2"><code>distillate --digest</code></td><td>Send a weekly reading digest email</td></tr>
+        <tr><td colspan="2"><code>distillate --init</code></td><td>Run the setup wizard</td></tr>
       </table>
     </div>
 
     <div class="requires">
       <h2>What you need</h2>
       <table>
+        <colgroup><col class="col-main"><col class="col-badge"><col class="col-notes"></colgroup>
         <tr><th>Component</th><th></th><th>Notes</th></tr>
         <tr><td>Zotero account</td><td><span class="badge badge-green">Free</span></td><td>Manages your paper library</td></tr>
         <tr><td>reMarkable tablet</td><td><span class="badge badge-purple">Required</span></td><td>Where you read and highlight (uses <a href="https://github.com/ddvk/rmapi" style="color:var(--muted);">rmapi</a>)</td></tr>
