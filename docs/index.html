@@ -205,10 +205,43 @@
       color: var(--muted);
     }
 
-    .commands code {
+    .commands {
+      margin-bottom: 48px;
+    }
+
+    .command-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .command {
+      display: flex;
+      align-items: baseline;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 16px;
+    }
+
+    .command:last-child {
+      border-bottom: none;
+    }
+
+    .command code {
       font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
       font-size: 0.85rem;
       white-space: nowrap;
+      min-width: 260px;
+    }
+
+    .command span {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 480px) {
+      .command { flex-direction: column; gap: 2px; }
+      .command code { min-width: auto; }
     }
 
     .requires {
@@ -219,12 +252,7 @@
       width: 100%;
       border-collapse: collapse;
       font-size: 0.9rem;
-      table-layout: fixed;
     }
-
-    .requires table col.col-main { width: 55%; }
-    .requires table col.col-badge { width: 12%; }
-    .requires table col.col-notes { width: 33%; }
 
     .requires th {
       text-align: left;
@@ -416,22 +444,20 @@ $ distillate --init</code>
       </div>
     </div>
 
-    <div class="requires commands">
+    <div class="commands">
       <h2>Commands</h2>
-      <table>
-        <colgroup><col class="col-main"><col class="col-badge"><col class="col-notes"></colgroup>
-        <tr><td colspan="2"><code>distillate</code></td><td>Run the full sync workflow</td></tr>
-        <tr><td colspan="2"><code>distillate --suggest</code></td><td>Get paper suggestions, promote to reMarkable</td></tr>
-        <tr><td colspan="2"><code>distillate --status</code></td><td>Show queue health and reading stats</td></tr>
-        <tr><td colspan="2"><code>distillate --digest</code></td><td>Send a weekly reading digest email</td></tr>
-        <tr><td colspan="2"><code>distillate --init</code></td><td>Run the setup wizard</td></tr>
-      </table>
+      <div class="command-list">
+        <div class="command"><code>distillate</code><span>Run the full sync workflow</span></div>
+        <div class="command"><code>distillate --suggest</code><span>Get paper suggestions, promote to reMarkable</span></div>
+        <div class="command"><code>distillate --status</code><span>Show queue health and reading stats</span></div>
+        <div class="command"><code>distillate --digest</code><span>Send a weekly reading digest email</span></div>
+        <div class="command"><code>distillate --init</code><span>Run the setup wizard</span></div>
+      </div>
     </div>
 
     <div class="requires">
       <h2>What you need</h2>
       <table>
-        <colgroup><col class="col-main"><col class="col-badge"><col class="col-notes"></colgroup>
         <tr><th>Component</th><th></th><th>Notes</th></tr>
         <tr><td>Zotero account</td><td><span class="badge badge-green">Free</span></td><td>Manages your paper library</td></tr>
         <tr><td>reMarkable tablet</td><td><span class="badge badge-purple">Required</span></td><td>Where you read and highlight (uses <a href="https://github.com/ddvk/rmapi" style="color:var(--muted);">rmapi</a>)</td></tr>
