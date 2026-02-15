@@ -76,12 +76,24 @@ LIMIT 10
 
 
 def _papers_dir() -> Optional[Path]:
-    """Return the papers directory in the Obsidian vault, or None if unconfigured."""
-    if not config.OBSIDIAN_VAULT_PATH:
+    """Return the papers directory, or None if unconfigured.
+
+    Checks OBSIDIAN_VAULT_PATH first (full Obsidian integration), then
+    OUTPUT_PATH (plain folder mode — notes + PDFs without Obsidian features).
+    """
+    if config.OBSIDIAN_VAULT_PATH:
+        d = Path(config.OBSIDIAN_VAULT_PATH) / config.OBSIDIAN_PAPERS_FOLDER
+    elif config.OUTPUT_PATH:
+        d = Path(config.OUTPUT_PATH)
+    else:
         return None
-    d = Path(config.OBSIDIAN_VAULT_PATH) / config.OBSIDIAN_PAPERS_FOLDER
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def _is_obsidian() -> bool:
+    """Return True if we're using an Obsidian vault (vs plain folder)."""
+    return bool(config.OBSIDIAN_VAULT_PATH)
 
 
 def _inbox_dir() -> Optional[Path]:
@@ -173,6 +185,8 @@ def save_annotated_pdf(title: str, pdf_bytes: bytes) -> Optional[Path]:
 
 def ensure_dataview_note() -> None:
     """Create the Dataview reading log note if it doesn't exist."""
+    if not _is_obsidian():
+        return
     d = _papers_dir()
     if d is None:
         return
@@ -187,6 +201,8 @@ def ensure_dataview_note() -> None:
 
 def ensure_stats_note() -> None:
     """Create the Reading Stats dashboard note if it doesn't exist."""
+    if not _is_obsidian():
+        return
     d = _papers_dir()
     if d is None:
         return
@@ -297,10 +313,15 @@ def create_paper_note(
         optional += f"\nhighlight_word_count: {highlight_word_count}"
     if page_count:
         optional += f"\npage_count: {page_count}"
-    pdf_yaml = f'\npdf: "[[{pdf_filename}]]"' if pdf_filename else ""
-
-    # Optional PDF embed in note body
-    pdf_embed = f"![[{pdf_filename}]]\n\n" if pdf_filename else ""
+    if pdf_filename and _is_obsidian():
+        pdf_yaml = f'\npdf: "[[{pdf_filename}]]"'
+        pdf_embed = f"![[{pdf_filename}]]\n\n"
+    elif pdf_filename:
+        pdf_yaml = f'\npdf: "{pdf_filename}"'
+        pdf_embed = ""
+    else:
+        pdf_yaml = ""
+        pdf_embed = ""
 
     # One-liner blockquote at top
     oneliner_md = f"> {one_liner}\n\n" if one_liner else ""
@@ -461,8 +482,15 @@ def append_to_reading_log(
     existing = log_path.read_text()
     sanitized = _sanitize_note_name(title)
 
+    # Build link marker and entry format based on mode
+    if _is_obsidian():
+        link_marker = f"[[{sanitized}|"
+        link_text = f"[[{sanitized}|{title}]]"
+    else:
+        link_marker = f"[{sanitized}]"
+        link_text = title
+
     # Find existing entries and preserve the oldest date
-    link_marker = f"[[{sanitized}|"
     lines = existing.split("\n")
     existing_date = ""
     for line in lines:
@@ -471,7 +499,7 @@ def append_to_reading_log(
             break
 
     entry_date = existing_date or (date_read[:10] if date_read else date.today().isoformat())
-    bullet = f"- {entry_date} — [[{sanitized}|{title}]] — {summary}"
+    bullet = f"- {entry_date} — {link_text} — {summary}"
 
     # Remove ALL existing entries for this paper, then add new one
     cleaned = [line for line in lines if link_marker not in line]

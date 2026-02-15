@@ -59,21 +59,22 @@ ZOTERO_USER_ID: str = ""
 REMARKABLE_DEVICE_TOKEN: str = os.environ.get("REMARKABLE_DEVICE_TOKEN", "").strip()
 
 # Configurable with defaults
-RM_FOLDER_PAPERS: str = os.environ.get("RM_FOLDER_PAPERS", "Papers").strip()
-RM_FOLDER_INBOX: str = os.environ.get("RM_FOLDER_INBOX", "Papers/Inbox").strip()
-RM_FOLDER_READ: str = os.environ.get("RM_FOLDER_READ", "Papers/Read").strip()
-RM_FOLDER_SAVED: str = os.environ.get("RM_FOLDER_SAVED", "Papers/Saved").strip()
+RM_FOLDER_PAPERS: str = os.environ.get("RM_FOLDER_PAPERS", "Distillate").strip()
+RM_FOLDER_INBOX: str = os.environ.get("RM_FOLDER_INBOX", "Distillate/Inbox").strip()
+RM_FOLDER_READ: str = os.environ.get("RM_FOLDER_READ", "Distillate/Read").strip()
+RM_FOLDER_SAVED: str = os.environ.get("RM_FOLDER_SAVED", "Distillate/Saved").strip()
 
 ZOTERO_TAG_INBOX: str = os.environ.get("ZOTERO_TAG_INBOX", "inbox").strip()
 ZOTERO_TAG_READ: str = os.environ.get("ZOTERO_TAG_READ", "read").strip()
 
 
 OBSIDIAN_VAULT_PATH: str = os.environ.get("OBSIDIAN_VAULT_PATH", "").strip()
-OBSIDIAN_PAPERS_FOLDER: str = os.environ.get("OBSIDIAN_PAPERS_FOLDER", "Papers").strip()
+OBSIDIAN_PAPERS_FOLDER: str = os.environ.get("OBSIDIAN_PAPERS_FOLDER", "Distillate").strip()
 OBSIDIAN_VAULT_NAME: str = (
     os.environ.get("OBSIDIAN_VAULT_NAME", "").strip()
     or (Path(OBSIDIAN_VAULT_PATH).name if OBSIDIAN_VAULT_PATH else "")
 )
+OUTPUT_PATH: str = os.environ.get("OUTPUT_PATH", "").strip()
 
 ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 

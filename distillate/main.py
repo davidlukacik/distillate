@@ -568,7 +568,148 @@ def _promote() -> None:
         release_lock()
 
 
+def _init_wizard() -> None:
+    """Interactive setup wizard for first-time users."""
+    from distillate import config
+    from distillate.config import save_to_env, CONFIG_DIR, ENV_PATH
+
+    print()
+    print("  Welcome to Distillate")
+    print("  " + "=" * 40)
+    print()
+    print(f"  Config will be saved to: {ENV_PATH}")
+    print()
+
+    # 1. Zotero (required)
+    print("  --- Zotero (required) ---")
+    print()
+    print("  Create an API key at: https://www.zotero.org/settings/keys/new")
+    print("  (Enable library access + write access)")
+    print()
+    api_key = input("  Zotero API key: ").strip()
+    if not api_key:
+        print("\n  Error: Zotero API key is required.")
+        return
+
+    print()
+    print("  Find your user ID at: https://www.zotero.org/settings/keys")
+    print()
+    user_id = input("  Zotero user ID: ").strip()
+    if not user_id:
+        print("\n  Error: Zotero user ID is required.")
+        return
+
+    # Verify credentials
+    print()
+    print("  Verifying Zotero credentials...")
+    save_to_env("ZOTERO_API_KEY", api_key)
+    save_to_env("ZOTERO_USER_ID", user_id)
+    try:
+        import requests
+        resp = requests.get(
+            f"https://api.zotero.org/users/{user_id}/items?limit=1",
+            headers={"Zotero-API-Version": "3", "Zotero-API-Key": api_key},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        print("  Zotero: connected successfully.")
+    except Exception as e:
+        print(f"  Warning: Could not verify Zotero credentials ({e})")
+        print("  Credentials saved — you can fix them later in .env")
+
+    # 2. reMarkable (required)
+    print()
+    print("  --- reMarkable (required) ---")
+    print()
+    register = input("  Register your reMarkable device now? [Y/n] ").strip().lower()
+    if register != "n":
+        from distillate.remarkable_auth import register_interactive
+        register_interactive()
+    else:
+        print("  Skipped. Run 'distillate --register' later.")
+
+    # 3. Output destination
+    print()
+    print("  --- Output (where notes + annotated PDFs go) ---")
+    print()
+    print("  [1] Obsidian vault (rich integration: wiki-links, Dataview, stats)")
+    print("  [2] Plain folder (just markdown notes + PDFs)")
+    print("  [3] Skip (no local output, Zotero + reMarkable only)")
+    print()
+    choice = input("  Choice [1/2/3]: ").strip()
+
+    if choice == "1":
+        vault_path = input("  Obsidian vault path: ").strip()
+        if vault_path:
+            vault_path = str(Path(vault_path).expanduser().resolve())
+            save_to_env("OBSIDIAN_VAULT_PATH", vault_path)
+            print(f"  Notes will go to: {vault_path}/Distillate/")
+    elif choice == "2":
+        output_path = input("  Output folder path: ").strip()
+        if output_path:
+            output_path = str(Path(output_path).expanduser().resolve())
+            save_to_env("OUTPUT_PATH", output_path)
+            Path(output_path).mkdir(parents=True, exist_ok=True)
+            print(f"  Notes will go to: {output_path}")
+    else:
+        print("  Skipped. Notes will only be stored in Zotero.")
+
+    # 4. AI summaries (optional)
+    print()
+    print("  --- AI Summaries (optional) ---")
+    print()
+    print("  Distillate can generate one-liner summaries, paragraph overviews,")
+    print("  and key learnings for each paper using Claude.")
+    print()
+    anthropic_key = input("  Anthropic API key (Enter to skip): ").strip()
+    if anthropic_key:
+        save_to_env("ANTHROPIC_API_KEY", anthropic_key)
+        print("  AI summaries enabled.")
+    else:
+        print("  Skipped. Papers will use abstracts as fallback.")
+
+    # 5. Email digest (optional)
+    print()
+    print("  --- Email Digest (optional) ---")
+    print()
+    print("  Get daily paper suggestions and weekly reading digests by email.")
+    print("  Requires a Resend account: https://resend.com")
+    print()
+    resend_key = input("  Resend API key (Enter to skip): ").strip()
+    if resend_key:
+        save_to_env("RESEND_API_KEY", resend_key)
+        email_to = input("  Your email address: ").strip()
+        if email_to:
+            save_to_env("DIGEST_TO", email_to)
+        print("  Email digest enabled.")
+    else:
+        print("  Skipped.")
+
+    # Done
+    print()
+    print("  " + "=" * 40)
+    print("  Setup complete!")
+    print()
+    print(f"  Config saved to: {ENV_PATH}")
+    print()
+    print("  Next steps:")
+    print("    1. Save a paper to Zotero using the browser connector")
+    print("    2. Run: distillate")
+    print("    3. Read & highlight on your reMarkable")
+    print("    4. Move the document to Distillate/Read when done")
+    print("    5. Run distillate again to sync everything back")
+    print()
+    print("  For automatic syncing, run:")
+    print("    distillate --install-schedule    (macOS)")
+    print("    crontab -e                       (Linux)")
+    print()
+
+
 def main():
+    if "--init" in sys.argv:
+        _init_wizard()
+        return
+
     if "--register" in sys.argv:
         from distillate.remarkable_auth import register_interactive
         register_interactive()
