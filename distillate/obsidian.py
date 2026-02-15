@@ -1,4 +1,4 @@
-"""Obsidian vault integration.
+"""Note output integration (Obsidian vault or plain folder).
 
 Creates per-paper markdown notes with YAML frontmatter and highlights,
 and maintains a simple reading log.
@@ -117,9 +117,9 @@ def _read_dir() -> Optional[Path]:
 
 
 def save_inbox_pdf(title: str, pdf_bytes: bytes) -> Optional[Path]:
-    """Save an original PDF to the Obsidian vault Inbox folder.
+    """Save an original PDF to the Inbox folder.
 
-    Returns the path to the saved file, or None if Obsidian is unconfigured.
+    Returns the path to the saved file, or None if output is unconfigured.
     """
     inbox = _inbox_dir()
     if inbox is None:
@@ -168,9 +168,9 @@ def delete_paper_note(title: str) -> None:
 
 
 def save_annotated_pdf(title: str, pdf_bytes: bytes) -> Optional[Path]:
-    """Save an annotated PDF to the Obsidian vault Read folder.
+    """Save an annotated PDF to the Read folder.
 
-    Returns the path to the saved file, or None if Obsidian is unconfigured.
+    Returns the path to the saved file, or None if output is unconfigured.
     """
     rd = _read_dir()
     if rd is None:
@@ -267,9 +267,9 @@ def create_paper_note(
     highlight_word_count: int = 0,
     page_count: int = 0,
 ) -> Optional[Path]:
-    """Create an Obsidian note for a read paper in the Read subfolder.
+    """Create a markdown note for a read paper in the Read subfolder.
 
-    Returns the path to the created note, or None if Obsidian is unconfigured
+    Returns the path to the created note, or None if output is unconfigured
     or the note already exists.
     """
     rd = _read_dir()
@@ -360,7 +360,7 @@ tags:
 {highlights_md}
 """
     note_path.write_text(content)
-    log.info("Created Obsidian note: %s", note_path)
+    log.info("Created note: %s", note_path)
     return note_path
 
 
@@ -396,7 +396,7 @@ def _rebuild_frontmatter(blocks: OrderedDict) -> str:
 
 
 def update_note_frontmatter(title: str, metadata: Dict[str, Any]) -> bool:
-    """Update YAML frontmatter on an existing Obsidian note.
+    """Update YAML frontmatter on an existing paper note.
 
     Replaces authors, tags, doi, journal, publication_date, url, and
     citation_count. Preserves all other fields and the entire note body.
@@ -487,7 +487,7 @@ def append_to_reading_log(
         link_marker = f"[[{sanitized}|"
         link_text = f"[[{sanitized}|{title}]]"
     else:
-        link_marker = f"[{sanitized}]"
+        link_marker = sanitized
         link_text = title
 
     # Find existing entries and preserve the oldest date
@@ -549,7 +549,7 @@ def _themes_dir() -> Optional[Path]:
 
 
 def create_themes_note(month: str, content: str) -> Optional[Path]:
-    """Create a monthly themes note in Papers/Themes/.
+    """Create a monthly themes note in the Themes subfolder.
 
     month should be like '2026-02'. Returns the path, or None if unconfigured.
     """
@@ -577,7 +577,7 @@ month: {month}
 
 
 def _sanitize_note_name(name: str) -> str:
-    """Sanitize a string for use as an Obsidian note filename."""
+    """Sanitize a string for use as a note filename."""
     bad_chars = '<>:"/\\|?*#^[]'
     result = name
     for c in bad_chars:
