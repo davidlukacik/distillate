@@ -7,6 +7,7 @@
 - **Cross-page highlight merging**: highlights that span page breaks are now joined into a single passage
 - **Citation data surfacing**: Semantic Scholar citation counts shown in digest emails, suggestion prompts, and `--status` output
 - **Richer `--status`**: config warnings, awaiting PDF titles, pending promotions
+- **Smart `--init` re-run**: detects existing config and offers shortcut to optional features; shows existing values as defaults
 
 ### Reliability
 
