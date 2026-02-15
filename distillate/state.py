@@ -5,6 +5,7 @@ and processing status. State is stored as JSON and written atomically to prevent
 corruption if the script is interrupted mid-write.
 """
 
+import copy
 import json
 import logging
 import os
@@ -33,7 +34,7 @@ _DEFAULT_STATE = {
 
 def _load_raw() -> Dict[str, Any]:
     if not STATE_PATH.exists():
-        return dict(_DEFAULT_STATE)
+        return copy.deepcopy(_DEFAULT_STATE)
     return json.loads(STATE_PATH.read_text())
 
 
@@ -130,7 +131,7 @@ class State:
         doc = self._data["documents"].get(zotero_item_key)
         if doc:
             doc["status"] = "processed"
-            if "processed_at" not in doc:
+            if not doc.get("processed_at"):
                 doc["processed_at"] = datetime.now(timezone.utc).isoformat()
             if summary:
                 doc["summary"] = summary
