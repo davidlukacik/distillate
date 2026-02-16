@@ -17,7 +17,7 @@ Save to Zotero  ──>  syncs to reMarkable
                    Just move to Read when done
                                 │
                                 V
-               Notes + highlights + annotated PDF
+               Notes + highlights + archived PDF
 ```
 
 ## Quick Start
