@@ -11,13 +11,14 @@ Distill research papers from Zotero through reMarkable into structured notes.
 ```
 $ distillate   # turn papers into notes!
 
-Save to Zotero  ──>  syncs to reMarkable
+Save to Zotero  ──>  Auto-syncs to reMarkable
                                 │
                    Read & highlight on tablet
                    Just move to Read when done
                                 │
                                 V
-               Notes + highlights + archived PDF
+Highlights: extracted. PDF: auto-saved.
+# your reading, distilled.
 ```
 
 ## Quick Start
