@@ -424,10 +424,15 @@ def _sync_state() -> None:
         log.info("No state.json to sync")
         return
 
-    subprocess.run(
-        ["gh", "gist", "edit", gist_id, "-f", "state.json", str(STATE_PATH)],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            ["gh", "gist", "edit", gist_id, "-f", "state.json", str(STATE_PATH)],
+            check=True,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        log.error("Timed out syncing state to gist %s", gist_id)
+        return
     log.info("Synced state.json to gist %s", gist_id)
 
 
@@ -1365,9 +1370,9 @@ def _init_step5(save_to_env) -> None:
         if email_to:
             save_to_env("DIGEST_TO", email_to)
         print()
-        print("  Emails are sent from onboarding@resend.dev by default.")
-        print("  To use a custom sender, set DIGEST_FROM in your .env")
-        print("  (requires a verified domain in Resend).")
+        print("  Resend's free tier includes one custom domain (3,000 emails/month).")
+        print("  Add your domain at resend.com/domains, then set DIGEST_FROM")
+        print("  in your .env (e.g. digest@yourdomain.com).")
         print()
         print("  Email digest enabled.")
     else:
@@ -2007,22 +2012,30 @@ _VERSION = "0.1.6"
 _HELP = """\
 Usage: distillate [command]
 
-  distillate              Sync Zotero -> reMarkable -> notes (default)
-  distillate --import     Import existing papers from Zotero
-  distillate --status     Show queue health and reading stats
-  distillate --list       List all tracked papers
-  distillate --suggest    Get paper suggestions for your queue
-  distillate --digest     Show your reading digest
-  distillate --schedule   Set up or manage automatic syncing
-  distillate --init       Run the setup wizard
+  distillate              Sync papers: Zotero -> reMarkable -> notes
+
+Commands:
+  --import                Import existing papers from Zotero
+  --status                Show queue health and reading stats
+  --list                  List all tracked papers
+  --suggest               Pick papers for your queue and promote to tablet
+  --digest                Show your reading digest
+  --schedule              Set up automatic syncing (launchd/cron)
+  --init                  Run the setup wizard
+
+Management:
+  --remove "Title"        Remove a paper from tracking
+  --reprocess "Title"     Re-extract highlights and regenerate note
+
+Advanced:
+  --dry-run               Preview sync without making changes
+  --themes 2026-02        Generate monthly research themes note
+  --backfill-s2           Refresh Semantic Scholar data for all papers
+  --sync-state            Push state.json to a GitHub Gist
 
 Options:
   -h, --help              Show this help
   -V, --version           Show version
-
-Advanced:
-  --remove "Title"        Remove a paper from tracking
-  --reprocess "Title"     Re-extract highlights for a paper
 """
 
 

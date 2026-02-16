@@ -21,6 +21,15 @@ First-impression hardening: make the first 5 minutes bulletproof.
 - **Claude data disclosure**: init wizard Step 5 now mentions that highlights and abstracts are sent to the Claude API
 - **Text recognition prerequisite**: init wizard Step 2 and README mention enabling text recognition on reMarkable
 - **Intermediate state save**: Step 2 saves `processing` status after Zotero tag change, resumes on restart — prevents papers stuck in limbo after crashes
+- **"My Notes" section**: Obsidian/markdown notes now include a `## My Notes` section at the end
+- **DOI link in notes**: papers with a DOI get an "Open paper" link at the top of the note
+- **`_sync_state` timeout**: Gist sync now times out after 30 seconds instead of hanging indefinitely
+- **PDF download logging**: failed arXiv/biorxiv downloads now log a warning instead of silently failing
+- **Expanded `--help`**: commands grouped by category (core, management, advanced) with descriptions
+- **Local-first positioning**: landing page and README now emphasize that notes stay on your machine
+- **Troubleshooting guide**: README section covering common issues (rmapi not found, empty highlights, API errors)
+- **Resend custom domain**: init wizard mentions free tier includes 1 custom domain
+- **Config table**: README now documents `DIGEST_FROM`, `KEEP_ZOTERO_PDF`, `LOG_LEVEL`, `STATE_GIST_ID`
 
 ## 0.1.5 — 2026-02-16
 
