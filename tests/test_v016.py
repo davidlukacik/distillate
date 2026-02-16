@@ -2,11 +2,6 @@
 PDF delete guard, intermediate state, --status queue contents, init disclosures."""
 
 import logging
-import os
-import sys
-from io import StringIO
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -92,7 +87,6 @@ class TestSetupLogging:
         monkeypatch.setattr(config, "_logging_configured", False)
 
         root = logging.getLogger()
-        initial_handlers = len(root.handlers)
 
         config.setup_logging()
         after_first = len(root.handlers)
