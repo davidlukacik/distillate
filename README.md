@@ -17,7 +17,7 @@ Save to Zotero  ──>  syncs to reMarkable
                    Just move to Read when done
                                 │
                                 V
-                   Distillate does the rest!
+               Notes + highlights + annotated PDF
 ```
 
 ## Quick Start
