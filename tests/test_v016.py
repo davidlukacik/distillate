@@ -410,7 +410,11 @@ class TestNoCredentialsRequired:
         monkeypatch.delenv("ZOTERO_USER_ID", raising=False)
 
         from distillate import config
+        from distillate.state import State
         monkeypatch.setattr(config, "_logging_configured", False)
+
+        # Create empty state so first-run check doesn't trigger
+        State().save()
 
         from distillate.main import _status
         _status()  # should not raise SystemExit
