@@ -297,6 +297,43 @@
       line-height: 1.6;
     }
 
+    .github-cta {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .star-btn {
+      display: inline-block;
+      background: var(--fg);
+      color: var(--bg);
+      padding: 10px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 10px;
+      transition: opacity 0.15s;
+    }
+
+    .star-btn:hover {
+      opacity: 0.85;
+    }
+
+    .github-cta span {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .github-cta span a {
+      color: #7c3aed;
+      text-decoration: none;
+    }
+
+    .github-cta span a:hover {
+      text-decoration: underline;
+    }
+
     .badges {
       display: flex;
       gap: 8px;
@@ -443,6 +480,11 @@ $ distillate --init</code>
           <span>See how influential each paper is with citation counts from Semantic Scholar</span>
         </div>
       </div>
+    </div>
+
+    <div class="github-cta">
+      <a href="https://github.com/rlacombe/distillate" class="star-btn">Star on GitHub</a>
+      <span>Questions or ideas? <a href="https://github.com/rlacombe/distillate/discussions">Start a discussion</a></span>
     </div>
 
     <div class="commands">
