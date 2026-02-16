@@ -37,6 +37,7 @@ The setup wizard walks you through connecting Zotero, reMarkable, and choosing w
 | [Zotero](https://www.zotero.org/) | Yes | Paper library + browser connector for saving papers |
 | [reMarkable](https://remarkable.com/) tablet | Yes | Read & highlight papers with the built-in highlighter |
 | [rmapi](https://github.com/ddvk/rmapi) | Yes | CLI bridge to reMarkable Cloud |
+| Text recognition (on reMarkable) | Yes | Enable in Settings for highlight extraction |
 | [Obsidian](https://obsidian.md/) vault | No | Rich note integration (Dataview, reading stats, deep links) |
 | Plain folder | No | Alternative to Obsidian — just markdown notes + PDFs |
 | [Anthropic API key](https://console.anthropic.com/) | No | AI-generated summaries and key learnings |
@@ -153,6 +154,7 @@ On first run, the script sets a watermark at your current Zotero library version
 distillate                          # Sync Zotero -> reMarkable -> notes (default)
 distillate --import                 # Import existing papers from Zotero
 distillate --status                 # Show queue health and reading stats
+distillate --list                   # List all tracked papers
 distillate --suggest                # Get paper suggestions for your queue
 distillate --digest                 # Show your reading digest
 distillate --schedule               # Set up or manage automatic syncing
@@ -163,6 +165,7 @@ distillate --init                   # Run the setup wizard
 <summary>Advanced commands</summary>
 
 ```bash
+distillate --remove "Title"         # Remove a paper from tracking
 distillate --reprocess "Title"      # Re-run highlights + summary for a paper
 distillate --dry-run                # Preview what would happen (no changes)
 distillate --themes 2026-02         # Generate monthly research themes synthesis
