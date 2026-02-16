@@ -81,8 +81,6 @@ class TestNoteOverwrite:
         )
         assert result1 is not None
         assert result1.exists()
-        original_content = result1.read_text()
-
         # Create again with different highlights — should overwrite
         result2 = obsidian.create_paper_note(
             title="My Paper",
