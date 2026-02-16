@@ -351,8 +351,12 @@ class TestStatusQueueContents:
     def test_status_no_papers(self, capsys, monkeypatch):
         from distillate.main import _status
         from distillate import config
+        from distillate.state import State
 
         monkeypatch.setattr(config, "_logging_configured", False)
+
+        # Create empty state so first-run check doesn't trigger
+        State().save()
 
         _status()
         output = capsys.readouterr().out
@@ -364,9 +368,9 @@ class TestStatusQueueContents:
 # ---------------------------------------------------------------------------
 
 class TestCleanOutput:
-    def test_version_is_016(self):
+    def test_version_is_017(self):
         from distillate.main import _VERSION
-        assert _VERSION == "0.1.6"
+        assert _VERSION == "0.1.7"
 
     def test_help_includes_list_and_remove(self):
         from distillate.main import _HELP
