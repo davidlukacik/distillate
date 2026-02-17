@@ -18,7 +18,10 @@ log = logging.getLogger(__name__)
 MARKER_START = "<!-- distillate:start -->"
 MARKER_END = "<!-- distillate:end -->"
 
+_TEMPLATE_VERSION = "2"  # bump when Stats or Bases templates change
+
 _STATS_TEMPLATE = """\
+<!-- distillate:template:{version} -->
 # Distillate Stats
 
 ## Monthly Breakdown
@@ -188,8 +191,15 @@ def ensure_dataview_note() -> None:
         log.info("Removed legacy Papers List: %s", old_path)
 
 
+def _needs_template_update(path: Path) -> bool:
+    """Return True if the file is missing or has an outdated template version."""
+    if not path.exists():
+        return True
+    return f"distillate:template:{_TEMPLATE_VERSION}" not in path.read_text()
+
+
 def ensure_stats_note() -> None:
-    """Create the Distillate Stats dashboard note if it doesn't exist."""
+    """Create or update the Distillate Stats dashboard note."""
     if not _is_obsidian():
         return
     d = _papers_dir()
@@ -203,14 +213,18 @@ def ensure_stats_note() -> None:
         log.info("Renamed Reading Stats -> Distillate Stats")
 
     stats_path = d / "Distillate Stats.md"
-    if not stats_path.exists():
+    if _needs_template_update(stats_path):
         stats_path.write_text(
-            _STATS_TEMPLATE.format(folder=config.OBSIDIAN_PAPERS_FOLDER)
+            _STATS_TEMPLATE.format(
+                folder=config.OBSIDIAN_PAPERS_FOLDER,
+                version=_TEMPLATE_VERSION,
+            )
         )
         log.info("Created Distillate Stats: %s", stats_path)
 
 
 _BASES_TEMPLATE = """\
+# distillate:template:{version}
 filters: file.inFolder("{folder}/Saved")
 views:
   - type: table
@@ -228,7 +242,7 @@ views:
 
 
 def ensure_bases_note() -> None:
-    """Create an Obsidian Bases .base file if it doesn't exist.
+    """Create or update the Obsidian Bases .base file.
 
     Bases (Obsidian 1.9+) is the native replacement for Dataview.
     """
@@ -245,9 +259,12 @@ def ensure_bases_note() -> None:
         log.info("Removed legacy Papers.base")
 
     bases_path = d / "Distillate Papers.base"
-    if not bases_path.exists():
+    if _needs_template_update(bases_path):
         bases_path.write_text(
-            _BASES_TEMPLATE.format(folder=config.OBSIDIAN_PAPERS_FOLDER)
+            _BASES_TEMPLATE.format(
+                folder=config.OBSIDIAN_PAPERS_FOLDER,
+                version=_TEMPLATE_VERSION,
+            )
         )
         log.info("Created Bases file: %s", bases_path)
 
