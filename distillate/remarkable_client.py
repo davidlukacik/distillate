@@ -5,6 +5,8 @@ which handles the sync15 protocol and authentication.
 """
 
 import logging
+import os
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -108,18 +110,33 @@ def upload_pdf_bytes(pdf_bytes: bytes, folder: str, title: str) -> None:
     If a document with the same name already exists, skips the upload.
     """
     sanitized = sanitize_filename(title)
+    folder = folder.strip("/") 
+
     with tempfile.TemporaryDirectory() as tmpdir:
         dest = Path(tmpdir) / f"{sanitized}.pdf"
         dest.write_bytes(pdf_bytes)
+
         result = _run(["put", str(dest), f"/{folder}/"], check=False)
         if result.returncode != 0:
-            if "entry already exists" in result.stderr:
+            if "entry already exists" in (result.stderr or ""):
                 log.info("Already on reMarkable, skipping: '%s'", title)
                 return
             raise RuntimeError(
                 f"rmapi put failed (exit {result.returncode}): "
-                f"{result.stderr.strip()}"
+                f"{(result.stderr or '').strip()}"
             )
+
+        # Windows-specific: rmapi may use the full local path as the remote document name.
+        if os.name == "nt":
+            uploaded_name = str(dest.with_suffix(""))  # such as C:\Users\...\tmpXXXX\Title
+            src = f"/{folder}/{uploaded_name}"
+            dst = f"/{folder}/{sanitized}"
+
+            mv = _run(["mv", src, dst], check=False)
+            if mv.returncode != 0:
+                log.warning("Uploaded but failed to rename '%s' -> '%s': %s",
+                            uploaded_name, sanitized, (mv.stderr or "").strip())
+
     log.info("Uploaded '%s' to /%s/", title, folder)
 
 
