@@ -7,6 +7,9 @@ import logging
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import os
+import io
+import zipfile
 import requests
 
 from distillate import config
@@ -211,9 +214,59 @@ def get_pdf_attachment(item_key: str) -> Optional[Dict[str, Any]]:
 
 
 def download_pdf(attachment_key: str) -> bytes:
-    """Download the PDF file for an attachment item."""
-    resp = _get(f"/items/{attachment_key}/file")
-    return resp.content
+    """Download the PDF file for an attachment item.
+
+    Tries Zotero Web API first. If attachments are stored via WebDAV, Zotero's
+    /file endpoint may return 404; in that case, fall back to fetching
+    <attachment_key>.zip from the WebDAV server and extracting the PDF.
+    """
+    try:
+        resp = _get(f"/items/{attachment_key}/file")
+        return resp.content
+    except requests.HTTPError as e:
+        status = getattr(getattr(e, "response", None), "status_code", None)
+        if status == 404:
+            return _download_pdf_from_webdav_zip(attachment_key)
+        raise
+
+
+def _download_pdf_from_webdav_zip(attachment_key: str) -> bytes:
+    """
+    WebDAV fallback for Zotero attachment storage.
+    
+    When Zotero uses WebDAV, the actual attachment binary is stored on the WebDAV
+    server as <ATTACHMENT_KEY>.zip (with a matching .prop). This function fetches
+    that zip and extracts the PDF bytes.
+    """
+    webdav_url = os.environ.get("ZOTERO_WEBDAV_URL", "").rstrip("/")
+    user = os.environ.get("ZOTERO_WEBDAV_USERNAME", "")
+    pw = os.environ.get("ZOTERO_WEBDAV_PASSWORD", "")
+
+    if not (webdav_url and user and pw):
+        raise RuntimeError(
+            "WebDAV fallback enabled but ZOTERO_WEBDAV_URL / USERNAME / PASSWORD are not set"
+        )
+
+    zip_url = f"{webdav_url}/{attachment_key}.zip"
+
+    r = requests.get(zip_url, auth=(user, pw), timeout=60)
+    r.raise_for_status()
+
+    with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+        pdf_candidates = []
+        for name in z.namelist():
+            try:
+                data = z.read(name)
+            except Exception:
+                continue
+            if data[:4] == b"%PDF":
+                pdf_candidates.append((len(data), data))
+
+        if not pdf_candidates:
+            raise RuntimeError(f"No PDF found inside WebDAV zip for key={attachment_key}")
+
+        pdf_candidates.sort(key=lambda t: t[0], reverse=True)
+        return pdf_candidates[0][1]
 
 
 def download_pdf_from_url(url: str) -> Optional[bytes]:
