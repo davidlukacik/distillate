@@ -454,7 +454,7 @@ def create_paper_note(
                 except ValueError:
                     pass
 
-            note_path.write_text(content)
+            note_path.write_text(content, encoding="utf-8", newline="\n")
             log.info("Updated note: %s", note_path)
             return note_path
 
